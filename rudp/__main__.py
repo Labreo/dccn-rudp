@@ -3,6 +3,8 @@
     python -m rudp recv  --port 9000 --out received
     python -m rudp send  photo.jpg --to 192.168.1.20:9000 --proto sr --window 32 --cc reno
     python -m rudp demo  --proto gbn --loss 0.2
+    python -m rudp viz                      (animated, in the browser)
+    python -m rudp router --to RECEIVER:9001 --loss 0.1 --delay 40   (bad network in the middle)
     python -m rudp bench [--quick]
     python -m rudp plot  trace.json
     python -m rudp crc   1101011011 10011
@@ -225,6 +227,29 @@ def cmd_crc(a) -> int:
     return 0
 
 
+def cmd_router(a) -> int:
+    from .router import resolve, run_router
+    listen = (a.host, a.port)
+    target = resolve(a.to, 9001)
+    data_link = _link(a)
+    ack_link = LinkConfig(loss=a.ack_loss, delay_ms=a.delay, jitter_ms=a.jitter,
+                          seed=None if a.seed is None else a.seed + 1)
+    print(f"RUDP router: UDP {a.host}:{a.port}  ==>  {target[0]}:{target[1]}")
+    print(f"  data direction: loss={a.loss:.0%} corrupt={a.corrupt:.0%} dup={a.dup:.0%} delay={a.delay}ms"
+          f" jitter={a.jitter}ms rate={'unlimited' if not a.rate else f'{a.rate:g} kbit/s'} queue={a.queue}")
+    print(f"  ACK direction : loss={a.ack_loss:.0%} delay={a.delay}ms")
+    if a.host in ("0.0.0.0", ""):
+        print(f"  senders should use:  python -m rudp send FILE --to {_local_ips()[0]}:{a.port}")
+    run_router(listen, target, data_link, ack_link, verbose=a.verbose)
+    return 0
+
+
+def cmd_viz(a) -> int:
+    from .viz import serve
+    serve(a.host, a.port, open_browser=not a.no_browser)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m rudp", description="Reliable file transfer over UDP "
                                  "(Stop-and-Wait / Go-Back-N / Selective Repeat + Tahoe/Reno)")
@@ -258,6 +283,21 @@ def main(argv=None) -> int:
     _add_proto_args(p)
     _add_link_args(p, "data direction; delay/jitter also used for ACKs")
     p.set_defaults(fn=cmd_demo, proto="gbn", window=4, loss=0.15, delay=20.0, seed=7, min_rto=0.2)
+
+    p = sub.add_parser("router", help="relay between sender and receiver through an impaired link")
+    p.add_argument("--to", required=True, help="real receiver HOST[:PORT] (default port 9001)")
+    p.add_argument("--host", default="0.0.0.0")
+    p.add_argument("--port", type=int, default=9000, help="port senders connect to")
+    p.add_argument("--ack-loss", type=float, default=0.0, help="loss probability for ACKs going back")
+    p.add_argument("-v", "--verbose", action="store_true", help="log every frame the link hurts")
+    _add_link_args(p, "data direction; delay/jitter also used for ACKs")
+    p.set_defaults(fn=cmd_router)
+
+    p = sub.add_parser("viz", help="live animated visualizer in the browser")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
+    p.set_defaults(fn=cmd_viz)
 
     p = sub.add_parser("bench", help="run all experiments, write CSV + PNG + REPORT.md")
     p.add_argument("--out", default="results")

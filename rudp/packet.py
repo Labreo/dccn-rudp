@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import struct
 from dataclasses import dataclass
+from typing import Optional
 
 from .checksum import crc32, internet_checksum
 
@@ -129,6 +130,18 @@ def describe_fields(flags: int, seq: int, ack: int, length: int) -> str:
     if flags & ACK and not flags & (SYN | FIN):
         return f"ACK ack={ack} sack={seq}"
     return f"{f} seq={seq} ack={ack}"
+
+
+def peek_fields(raw: bytes) -> Optional[dict]:
+    """Header fields of a raw frame without verifying it (None if too short)."""
+    try:
+        _, _, flags, _, seq, ack, _, length, _ = struct.unpack_from(HEADER_FMT, raw)
+    except struct.error:
+        return None
+    flags &= ~CK16
+    kind = ("DATA" if flags & DATA else "SYN" if flags & SYN else "FIN" if flags & FIN
+            else "ACK" if flags & ACK else "OTHER")
+    return {"kind": kind, "seq": seq, "ack": ack, "len": length}
 
 
 def peek(raw: bytes) -> str:

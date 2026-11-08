@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUDP Live Visualizer</title>
+<style>
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #111827; --muted: #6b7280; --line: #e5e7eb;
+  --accent: #2563eb; --accent-soft: #dbeafe;
+  --unsent: #eef0f3; --flight: #93c5fd; --acked: #22c55e; --retx: #f59e0b;
+  --buffered: #c4b5fd; --delivered: #22c55e; --await: #f3f4f6;
+  --data: #2563eb; --ack: #16a34a; --lost: #dc2626; --corrupt: #ea580c; --ctl: #7c3aed;
+  --lane: #f8fafc; --lane-stripe: #eef2f7; --bad: #dc2626; --good: #16a34a;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --card: #171a21; --ink: #e5e7eb; --muted: #9ca3af; --line: #2a2f3a;
+    --accent: #60a5fa; --accent-soft: #1e3a5f;
+    --unsent: #262b35; --flight: #1d4ed8; --acked: #16a34a; --retx: #d97706;
+    --buffered: #6d28d9; --delivered: #16a34a; --await: #1f232c;
+    --data: #60a5fa; --ack: #4ade80; --lost: #f87171; --corrupt: #fb923c; --ctl: #a78bfa;
+    --lane: #12151b; --lane-stripe: #181c24; --bad: #f87171; --good: #4ade80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --card: #171a21; --ink: #e5e7eb; --muted: #9ca3af; --line: #2a2f3a;
+  --accent: #60a5fa; --accent-soft: #1e3a5f;
+  --unsent: #262b35; --flight: #1d4ed8; --acked: #16a34a; --retx: #d97706;
+  --buffered: #6d28d9; --delivered: #16a34a; --await: #1f232c;
+  --data: #60a5fa; --ack: #4ade80; --lost: #f87171; --corrupt: #fb923c; --ctl: #a78bfa;
+  --lane: #12151b; --lane-stripe: #181c24; --bad: #f87171; --good: #4ade80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { padding: 18px 24px 6px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 20px; }
+header p { margin: 0; color: var(--muted); }
+#theme { margin-left: auto; }
+main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; padding: 12px 24px 24px; }
+@media (max-width: 1180px) {
+  main { grid-template-columns: 1fr; }
+  #side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+}
+@media (max-width: 720px) { main { padding: 12px 16px; } header { padding: 16px; } #side { grid-template-columns: 1fr; } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.card h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+label { display: grid; grid-template-columns: 1fr 120px; align-items: center; gap: 8px; margin: 6px 0; }
+label span { color: var(--muted); }
+input, select, button { font: inherit; color: var(--ink); }
+input[type=number], select { width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+input[type=checkbox] { justify-self: start; }
+.row { display: flex; gap: 8px; margin-top: 12px; }
+button { border: 1px solid var(--line); background: var(--bg); border-radius: 7px; padding: 7px 12px; cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; flex: 1; }
+button:disabled { opacity: .5; cursor: default; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; padding: 5px 9px; border-radius: 999px; }
+.chip.on { background: var(--accent-soft); border-color: var(--accent); }
+#watch { margin-top: 10px; font-size: 13px; color: var(--muted); min-height: 3em; }
+#watch b { color: var(--ink); }
+.stagewrap { position: relative; }
+svg { width: 100%; height: auto; display: block; }
+#banner { position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%); padding: 12px 20px; border-radius: 10px;
+  font-weight: 700; font-size: 17px; display: none; box-shadow: 0 6px 24px rgba(0,0,0,.18); background: var(--card); border: 2px solid; text-align: center; }
+#banner small { display: block; font-weight: 500; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 980px) { .grid2 { grid-template-columns: 1fr; } }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); display: block; line-height: 1.25; }
+#log { height: 260px; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+#log div { padding: 0 2px; }
+.lS { color: var(--data); } .lR { color: var(--ack); } .lL { color: var(--lost); }
+.lT { color: var(--bad); font-weight: 700; } .lF { color: var(--ctl); font-weight: 700; } .lM { color: var(--muted); }
+canvas { width: 100%; height: 170px; display: block; }
+#cwndnote { font-size: 12.5px; color: var(--muted); }
+#phase { font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>RUDP Live Visualizer</h1>
+  <p>A real UDP transfer, slowed down so you can watch every packet.</p>
+  <button id="theme" title="Toggle light/dark">◐</button>
+</header>
+<main>
+  <div class="stack" id="side">
+    <section class="card">
+      <h2>Scenarios</h2>
+      <div class="chips" id="presets"></div>
+      <div id="watch"></div>
+    </section>
+    <section class="card">
+      <h2>Settings</h2>
+      <label><span>Protocol</span><select id="protocol">
+        <option value="sw">Stop-and-Wait</option><option value="gbn">Go-Back-N</option><option value="sr">Selective Repeat</option></select></label>
+      <label><span>Window N</span><input id="window" type="number" min="1" max="64" value="4"></label>
+      <label><span>Seq. bits m</span><select id="seq_bits">
+        <option value="auto">auto</option><option>1</option><option>2</option><option>3</option><option>4</option><option>8</option><option>32</option></select></label>
+      <label><span>Congestion ctl.</span><select id="cc"><option value="none">none</option><option value="tahoe">Tahoe</option><option value="reno">Reno</option></select></label>
+      <label><span>Packets</span><input id="packets" type="number" min="1" max="80" value="16"></label>
+      <label><span>Data loss %</span><input id="loss" type="number" min="0" max="90" step="1" value="15"></label>
+      <label><span>ACK loss %</span><input id="ack_loss" type="number" min="0" max="90" step="1" value="0"></label>
+      <label><span>Bit errors %</span><input id="corrupt" type="number" min="0" max="90" step="1" value="0"></label>
+      <label><span>Duplicates %</span><input id="dup" type="number" min="0" max="90" step="1" value="0"></label>
+      <label><span>One-way delay ms</span><input id="delay_ms" type="number" min="20" max="5000" step="50" value="700"></label>
+      <label><span>Jitter ms</span><input id="jitter_ms" type="number" min="0" max="3000" step="50" value="0"></label>
+      <label><span>Random seed</span><input id="seed" type="number" min="0" placeholder="random"></label>
+      <label><span>Allow unsafe N</span><input id="unsafe" type="checkbox"></label>
+      <div class="row"><button class="primary" id="run">▶ Run transfer</button><button id="abort" disabled>Stop</button></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="stagewrap">
+        <svg id="stage" viewBox="0 0 1000 470" role="img" aria-label="Animated packet transfer between sender and receiver"></svg>
+        <div id="banner"></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--unsent)"></i>not sent</span>
+        <span><i style="background:var(--flight)"></i>sent, waiting for ACK</span>
+        <span><i style="background:var(--acked)"></i>ACKed / delivered</span>
+        <span><i style="background:var(--buffered)"></i>buffered out of order (SR)</span>
+        <span><i style="background:var(--data)"></i>DATA</span>
+        <span><i style="background:var(--retx)"></i>retransmission</span>
+        <span><i style="background:var(--ack);border-radius:50%"></i>ACK</span>
+        <span><i style="background:var(--corrupt)"></i>bit errors</span>
+        <span><i style="background:var(--lost)"></i>lost / stale data</span>
+        <span><i style="background:linear-gradient(90deg,var(--good),var(--bad))"></i>retransmission timer</span>
+      </div>
+    </section>
+    <div class="grid2">
+      <section class="card">
+        <h2>Statistics <span id="phase"></span></h2>
+        <div class="stats" id="stats"></div>
+      </section>
+      <section class="card">
+        <h2>Congestion window</h2>
+        <canvas id="cwnd" width="600" height="220"></canvas>
+        <div id="cwndnote"></div>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Event log</h2>
+      <div id="log"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SVGNS = "http://www.w3.org/2000/svg";
+const W = 1000, PAD = 24;
+const Y_S = 78, Y_R = 360, BOX_H = 34;           // sender row top, receiver row top
+const Y_FROM = Y_S + BOX_H + 12, Y_TO = Y_R - 10; // flight lane
+
+// ------------------------------------------------------------------ presets
+const PRESETS = [
+  { name: "Stop-and-Wait", p: { protocol: "sw", packets: 8, loss: 20, ack_loss: 10, seed: 3 },
+    watch: "<b>One packet at a time.</b> Sequence numbers alternate 0,1,0,1 (1-bit). The sender idles for a whole round trip after every packet, and every loss costs a full timeout." },
+  { name: "Go-Back-N", p: { protocol: "gbn", window: 4, packets: 16, loss: 15, seed: 7 },
+    watch: "<b>Receiver window = 1.</b> When a packet is lost, the receiver <i>discards</i> everything after it and keeps re-ACKing the last in-order packet. The single timer expires and the sender goes back and resends the whole window." },
+  { name: "Selective Repeat", p: { protocol: "sr", window: 4, packets: 16, loss: 15, seed: 7 },
+    watch: "<b>Same losses as Go-Back-N.</b> Out-of-order packets turn purple: the receiver <i>buffers</i> them. Each packet has its own timer and only the lost one is resent, then the buffered run is delivered at once." },
+  { name: "Lost ACKs", p: { protocol: "gbn", window: 4, packets: 16, loss: 0, ack_loss: 35, seed: 5 },
+    watch: "<b>Cumulative ACKs.</b> Many ACKs vanish, yet few retransmissions happen: a later ACK \"ACK n\" confirms everything before n. A retransmission is only needed when every ACK for a window is lost." },
+  { name: "Bit errors (CRC)", p: { protocol: "sr", window: 4, packets: 14, loss: 0, corrupt: 25, seed: 4 },
+    watch: "<b>Orange packets have flipped bits.</b> The receiver recomputes the CRC-32, it does not match, and the frame is silently dropped (\"CRC ✗\"). With no ACK, the sender's timer recovers it as if it had been lost." },
+  { name: "Reordering", p: { protocol: "sr", window: 6, packets: 18, loss: 0, jitter_ms: 900, seed: 2 },
+    watch: "<b>Jitter makes packets overtake each other.</b> SR buffers early arrivals; nothing is retransmitted. Try the same with Go-Back-N and watch it discard and retransmit perfectly good packets." },
+  { name: "TCP Reno", p: { protocol: "sr", cc: "reno", window: 32, packets: 80, loss: 3, delay_ms: 350, seed: 11 },
+    watch: "<b>Slow start:</b> cwnd 1, 2, 4, 8 ... doubles every round trip. <b>3 duplicate ACKs</b> trigger fast retransmit and cwnd halves (fast recovery); after that it grows by 1 per RTT (AIMD). Watch the chart." },
+  { name: "Unsafe window", p: { protocol: "sr", seq_bits: 3, window: 6, unsafe: true, packets: 40, loss: 10, ack_loss: 40, delay_ms: 450, seed: 1 },
+    watch: "<b>Broken on purpose:</b> 3-bit sequence numbers (0-7) with N = 6 > 2^(m-1) = 4. When ACKs are lost, an old retransmitted packet carries the same number as a new one, the receiver accepts the stale data, and the final SHA-256 check fails. Set N = 4 and it always works." },
+];
+const DEFAULTS = { protocol: "gbn", window: 4, seq_bits: "auto", cc: "none", packets: 16, loss: 15, ack_loss: 0,
+  corrupt: 0, dup: 0, delay_ms: 700, jitter_ms: 0, seed: "", unsafe: false };
+
+function setForm(p) {
+  const v = Object.assign({}, DEFAULTS, p);
+  for (const k of Object.keys(DEFAULTS)) {
+    const el = $(k);
+    if (el.type === "checkbox") el.checked = !!v[k]; else el.value = v[k];
+  }
+}
+function readForm() {
+  const pct = (id) => Number($(id).value) / 100;
+  return { protocol: $("protocol").value, window: Number($("window").value), seq_bits: $("seq_bits").value,
+    cc: $("cc").value, packets: Number($("packets").value), loss: pct("loss"), ack_loss: pct("ack_loss"),
+    corrupt: pct("corrupt"), dup: pct("dup"), delay_ms: Number($("delay_ms").value),
+    jitter_ms: Number($("jitter_ms").value), seed: $("seed").value, unsafe: $("unsafe").checked };
+}
+const presetBox = $("presets");
+PRESETS.forEach((pr, k) => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = pr.name;
+  b.onclick = () => {
+    document.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
+    b.classList.add("on"); setForm(pr.p); $("watch").innerHTML = pr.watch; start();
+  };
+  presetBox.appendChild(b);
+});
+
+// ------------------------------------------------------------------ svg helpers
+const svg = $("stage");
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || svg).appendChild(e);
+  return e;
+}
+function txt(x, y, s, attrs, parent) {
+  const t = el("text", Object.assign({ x, y, "font-size": 12, fill: "var(--ink)" }, attrs || {}), parent);
+  t.textContent = s; return t;
+}
+
+// ------------------------------------------------------------------ state
+let S = null, es = null, raf = null;
+
+function reset(cfg) {
+  svg.innerHTML = "";
+  $("banner").style.display = "none";
+  const n = cfg.packets;
+  const bw = Math.min(56, (W - 2 * PAD) / n);
+  const x0 = (W - n * bw) / 2;
+  S = { cfg, n, bw, x0, M: cfg.M, sstate: new Array(n).fill(0), rstate: new Array(n).fill(0), base: 0, wnd: cfg.window,
+    rbase: 0, rwin: cfg.protocol === "sr" ? cfg.window : 1, dots: [], timers: new Map(), rto: cfg.min_rto,
+    lastCol: 0, t0: performance.now(), cw: [], stats: { sent: 0, retx: 0, timeouts: 0, fast: 0, dlost: 0, alost: 0,
+    corrupt: 0, delivered: 0, discarded: 0, buffered: 0, acks: 0 }, ended: false, phase: "connecting" };
+
+  // lane
+  el("rect", { x: 4, y: Y_FROM - 4, width: W - 8, height: Y_TO - Y_FROM + 8, rx: 8, fill: "var(--lane)", stroke: "var(--line)" });
+  for (let i = 0; i < n; i += 2)
+    el("rect", { x: x0 + i * bw, y: Y_FROM - 4, width: bw, height: Y_TO - Y_FROM + 8, fill: "var(--lane-stripe)" });
+  const lossTxt = `data loss ${(cfg.loss * 100).toFixed(0)}% · ACK loss ${(cfg.ack_loss * 100).toFixed(0)}%` +
+    (cfg.corrupt ? ` · bit errors ${(cfg.corrupt * 100).toFixed(0)}%` : "") + (cfg.jitter_ms ? ` · jitter ${cfg.jitter_ms} ms` : "");
+  txt(W / 2, (Y_FROM + Y_TO) / 2, `network · one-way delay ${cfg.delay_ms} ms · ${lossTxt}`,
+    { "text-anchor": "middle", fill: "var(--muted)", "font-size": 13, opacity: .55 });
+
+  txt(PAD, 26, "SENDER", { "font-weight": 700, "font-size": 13 });
+  S.sInfo = txt(PAD + 70, 26, "", { fill: "var(--muted)" });
+  txt(PAD, Y_R + BOX_H + 40, "RECEIVER", { "font-weight": 700, "font-size": 13 });
+  S.rInfo = txt(PAD + 86, Y_R + BOX_H + 40, "", { fill: "var(--muted)" });
+
+  S.sWin = el("rect", { x: x0, y: Y_S - 8, width: bw * S.wnd, height: BOX_H + 16, rx: 6, fill: "none",
+    stroke: "var(--accent)", "stroke-width": 2.5, style: "transition: x .35s, width .35s" });
+  S.rWin = el("rect", { x: x0, y: Y_R - 8, width: bw * S.rwin, height: BOX_H + 16, rx: 6, fill: "none",
+    stroke: "var(--ack)", "stroke-width": 2.5, "stroke-dasharray": "6 4", style: "transition: x .35s, width .35s" });
+
+  S.sBox = []; S.rBox = []; S.tBar = [];
+  const showSeq = cfg.seq_bits < 32 && bw >= 15;
+  for (let i = 0; i < n; i++) {
+    const x = x0 + i * bw;
+    S.sBox.push(el("rect", { x: x + 1, y: Y_S, width: bw - 2, height: BOX_H, rx: 4, fill: "var(--unsent)", stroke: "var(--line)" }));
+    S.rBox.push(el("rect", { x: x + 1, y: Y_R, width: bw - 2, height: BOX_H, rx: 4, fill: "var(--await)", stroke: "var(--line)" }));
+    S.tBar.push(el("rect", { x: x + 2, y: Y_S + BOX_H + 3, width: 0, height: 4, rx: 2, fill: "var(--good)" }));
+    if (bw >= 13) {
+      txt(x + bw / 2, Y_S + 21, i, { "text-anchor": "middle", "font-size": bw < 22 ? 9 : 11 });
+      txt(x + bw / 2, Y_R + 21, i, { "text-anchor": "middle", "font-size": bw < 22 ? 9 : 11 });
+    }
+    if (showSeq) {
+      txt(x + bw / 2, Y_S - 12, i % cfg.M, { "text-anchor": "middle", "font-size": 9.5, fill: "var(--muted)" });
+      txt(x + bw / 2, Y_R + BOX_H + 18, i % cfg.M, { "text-anchor": "middle", "font-size": 9.5, fill: "var(--muted)" });
+    }
+  }
+  if (showSeq) {
+    txt(x0 - 6, Y_S - 12, "seq", { "text-anchor": "end", "font-size": 9.5, fill: "var(--muted)" });
+    txt(x0 - 6, Y_R + BOX_H + 18, "seq", { "text-anchor": "end", "font-size": 9.5, fill: "var(--muted)" });
+  }
+  S.dotLayer = el("g", {});
+  S.fxLayer = el("g", {});
+  $("log").innerHTML = "";
+  updateInfo(); renderStats(); drawCwnd();
+  $("cwndnote").textContent = cfg.cc === "none"
+    ? "No congestion control: the window is fixed at N = " + cfg.window + "."
+    : "cwnd (solid) and ssthresh (dashed), in packets.";
+}
+
+const colX = (i) => S.x0 + (Math.max(0, Math.min(S.n - 1, i)) + 0.5) * S.bw;
+
+function updateInfo() {
+  const c = S.cfg;
+  const name = { sw: "Stop-and-Wait", gbn: "Go-Back-N", sr: "Selective Repeat" }[c.protocol];
+  S.sInfo.textContent = `${name} · window [${S.base}, ${S.base + S.wnd}) · N=${c.window}` +
+    (c.cc !== "none" && S.cw.length ? ` · cwnd=${S.cw[S.cw.length - 1].c.toFixed(1)}` : "") +
+    ` · m=${c.seq_bits} (seq 0..${c.seq_bits >= 32 ? "2³²−1" : c.M - 1})`;
+  S.rInfo.textContent = `next expected #${S.rbase}` + (c.protocol === "sr" ? ` · receive window [${S.rbase}, ${S.rbase + S.rwin})` : " · receive window = 1 (out-of-order packets are discarded)");
+  const clamp = (v) => Math.max(0, Math.min(S.n, v));
+  const sx = clamp(S.base), sw = clamp(S.base + S.wnd) - sx;
+  S.sWin.setAttribute("x", S.x0 + sx * S.bw); S.sWin.setAttribute("width", Math.max(0, sw * S.bw));
+  S.sWin.setAttribute("opacity", sw > 0 ? 1 : 0);
+  const rx = clamp(S.rbase), rw = clamp(S.rbase + S.rwin) - rx;
+  S.rWin.setAttribute("x", S.x0 + rx * S.bw); S.rWin.setAttribute("width", Math.max(0, rw * S.bw));
+  S.rWin.setAttribute("opacity", rw > 0 ? 1 : 0);
+}
+
+function paintRows() {
+  const sc = ["var(--unsent)", "var(--flight)", "var(--acked)"];
+  const rc = ["var(--await)", "var(--buffered)", "var(--delivered)", "var(--bad)"];
+  for (let i = 0; i < S.n; i++) {
+    S.sBox[i].setAttribute("fill", sc[S.sstate[i]]);
+    S.rBox[i].setAttribute("fill", rc[S.rstate[i]]);
+  }
+}
+function flashBox(box, color) {
+  box.setAttribute("stroke", color); box.setAttribute("stroke-width", 3);
+  setTimeout(() => { box.setAttribute("stroke", "var(--line)"); box.setAttribute("stroke-width", 1); }, 650);
+}
+function floatText(x, y, s, color) {
+  const t = txt(x, y, s, { "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: color }, S.fxLayer);
+  const t0 = performance.now();
+  (function step(now) {
+    const p = (now - t0) / 1300;
+    if (p >= 1) { t.remove(); return; }
+    t.setAttribute("y", y - 22 * p); t.setAttribute("opacity", 1 - p * p);
+    requestAnimationFrame(step);
+  })(t0);
+}
+
+// ------------------------------------------------------------------ flying packets
+function spawn(kind, opts) {
+  const dur = S.cfg.delay_ms + S.cfg.jitter_ms / 2;
+  const d = Object.assign({ kind, born: performance.now(), dur, lost: false, corrupt: false, done: false }, opts);
+  const g = el("g", {}, S.dotLayer);
+  const w = Math.max(10, Math.min(S.bw - 6, 34));
+  if (kind === "data") {
+    d.shape = el("rect", { x: -w / 2, y: -10, width: w, height: 20, rx: 4, fill: d.retx ? "var(--retx)" : "var(--data)" }, g);
+    if (w >= 16) txt(0, 4, d.seq, { "text-anchor": "middle", "font-size": 10.5, fill: "#fff", "font-weight": 700 }, g);
+    d.x = colX(d.i) - (S.bw >= 24 ? S.bw * 0.14 : 0); d.y0 = Y_FROM + 6; d.y1 = Y_TO - 10;
+  } else if (kind === "ack") {
+    const r = Math.max(5, Math.min(S.bw / 2 - 3, 12));
+    d.shape = el("circle", { r, fill: "var(--ack)" }, g);
+    if (r >= 9) txt(0, 3.5, d.ack, { "text-anchor": "middle", "font-size": 9, fill: "#fff", "font-weight": 700 }, g);
+    d.x = colX(d.col) + (S.bw >= 24 ? S.bw * 0.14 : 0); d.y0 = Y_TO - 10; d.y1 = Y_FROM + 6;
+  } else {
+    const w2 = 8 + d.label.length * 7.2;
+    d.shape = el("rect", { x: -w2 / 2, y: -11, width: w2, height: 22, rx: 11, fill: "var(--ctl)" }, g);
+    txt(0, 4, d.label, { "text-anchor": "middle", "font-size": 11, fill: "#fff", "font-weight": 700 }, g);
+    d.x = W / 2; d.down = opts.down; d.y0 = d.down ? Y_FROM + 6 : Y_TO - 10; d.y1 = d.down ? Y_TO - 10 : Y_FROM + 6;
+  }
+  d.g = g;
+  S.dots.push(d);
+  return d;
+}
+function findDot(pred, latest) {
+  const list = latest ? [...S.dots].reverse() : S.dots;
+  return list.find((d) => !d.done && pred(d));
+}
+function land(d) { if (d) { d.done = true; d.g.remove(); } }
+
+function tick(now) {
+  if (!S) { raf = requestAnimationFrame(tick); return; }
+  for (const d of S.dots) {
+    if (d.done) continue;
+    let p = (now - d.born) / d.dur;
+    if (d.lost && p >= 0.5) {
+      if (!d.xMark) {
+        d.xMark = true; d.lostAt = now;
+        d.shape.setAttribute("fill", "var(--lost)");
+        const m = txt(0, -14, "✗", { "text-anchor": "middle", "font-size": 22, "font-weight": 900, fill: "var(--lost)" }, d.g);
+      }
+      p = 0.5;
+      const f = (now - d.lostAt) / 900;
+      d.g.setAttribute("opacity", Math.max(0, 1 - f));
+      if (f >= 1) land(d);
+    } else if (p > 1) {
+      p = 1;
+      if (d.autoLand || now - d.born > d.dur + 2500) { land(d); continue; } // no event expected / never came
+    }
+    if (d.corrupt && !d.cMark) { d.cMark = true; d.shape.setAttribute("fill", "var(--corrupt)"); }
+    const y = d.y0 + (d.y1 - d.y0) * p;
+    d.g.setAttribute("transform", `translate(${d.x},${y})`);
+  }
+  S.dots = S.dots.filter((d) => !d.done);
+  // retransmission timers
+  for (let i = 0; i < S.n; i++) {
+    const t = S.timers.get(i);
+    const bar = S.tBar[i];
+    if (!t) { bar.setAttribute("width", 0); continue; }
+    const p = Math.min(1, (now - t) / (S.rto * 1000));
+    bar.setAttribute("width", Math.max(0, (S.bw - 4) * p));
+    bar.setAttribute("fill", p < 0.6 ? "var(--good)" : p < 0.85 ? "var(--retx)" : "var(--bad)");
+  }
+  if (!S.ended) { $("phase").textContent = `· ${S.phase} · ${((now - S.t0) / 1000).toFixed(1)} s`; }
+  raf = requestAnimationFrame(tick);
+}
+
+// ------------------------------------------------------------------ log, stats, cwnd
+function log(cls, s) {
+  const box = $("log");
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
+  const d = document.createElement("div");
+  d.className = cls; d.textContent = s;
+  box.appendChild(d);
+  while (box.childNodes.length > 400) box.removeChild(box.firstChild);
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+function renderStats() {
+  const s = S.stats;
+  const items = [["Data sent", s.sent], ["Retransmitted", s.retx], ["Timeouts", s.timeouts], ["Fast retransmits", s.fast],
+    ["Data lost", s.dlost], ["ACKs lost", s.alost], ["Bit-error frames", s.corrupt], ["Delivered", `${s.delivered}/${S.n}`],
+    ["Buffered (SR)", s.buffered], ["Discarded", s.discarded], ["ACKs received", s.acks],
+    ["Efficiency", s.sent ? Math.round(100 * Math.min(s.sent, S.n) / Math.max(s.sent, 1)) + "%" : "–"]];
+  $("stats").innerHTML = items.map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join("");
+}
+function drawCwnd() {
+  const c = $("cwnd"), g = c.getContext("2d");
+  const cs = getComputedStyle(document.documentElement);
+  const W2 = c.width, H2 = c.height, L = 36, B = 22;
+  g.clearRect(0, 0, W2, H2);
+  g.font = "18px system-ui"; g.fillStyle = cs.getPropertyValue("--muted");
+  if (!S || S.cfg.cc === "none" || !S.cw.length) {
+    g.fillText(S && S.cfg.cc !== "none" ? "waiting for data…" : "fixed window", L, H2 / 2); return;
+  }
+  const tmax = Math.max(1, S.cw[S.cw.length - 1].t * 1.05);
+  // Scale to cwnd; an initial ssthresh far above it (e.g. 64) is drawn clipped at the top.
+  const cmax = Math.max(...S.cw.map((p) => p.c));
+  const ymax = Math.max(4, cmax * 1.35, ...S.cw.map((p) => (p.s && p.s <= cmax * 2 ? p.s * 1.1 : 0)));
+  const X = (t) => L + (W2 - L - 8) * t / tmax, Y = (v) => H2 - B - (H2 - B - 8) * v / ymax;
+  g.strokeStyle = cs.getPropertyValue("--line"); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(L, 8); g.lineTo(L, H2 - B); g.lineTo(W2 - 8, H2 - B); g.stroke();
+  g.fillText(Math.round(ymax), 4, 22); g.fillText("0", 18, H2 - B); g.fillText(tmax.toFixed(1) + " s", W2 - 70, H2 - 2);
+  const line = (key, color, dash) => {
+    g.setLineDash(dash); g.strokeStyle = color; g.lineWidth = 3; g.beginPath();
+    let prev = null;
+    for (const p of S.cw) {
+      let v = p[key]; if (v == null || v > 1e5) continue;
+      v = Math.min(v, ymax);
+      if (prev == null) g.moveTo(X(p.t), Y(v)); else { g.lineTo(X(p.t), Y(prev)); g.lineTo(X(p.t), Y(v)); }
+      prev = v;
+    }
+    if (prev != null) g.lineTo(X(S.cw[S.cw.length - 1].t), Y(prev));
+    g.stroke(); g.setLineDash([]);
+  };
+  line("s", cs.getPropertyValue("--retx"), [8, 6]);
+  line("c", cs.getPropertyValue("--accent"), []);
+}
+
+// ------------------------------------------------------------------ event handling
+function fmtT(t) { return t.toFixed(2).padStart(6) + "s "; }
+function handle(ev) {
+  if (ev.type === "config") { reset(ev); return; }
+  if (!S) return;
+  const st = S.stats, T = fmtT(ev.t);
+  switch (ev.type) {
+    case "syn":
+      S.phase = "3-way handshake";
+      spawn("ctl", { label: "SYN", down: true });
+      log("lF", T + `SENDER   SYN${ev.attempt > 1 ? " (retry " + ev.attempt + ")" : ""}: request connection, announce file + protocol`); break;
+    case "rx_syn":
+      land(findDot((d) => d.kind === "ctl" && d.label === "SYN" && !d.lost));
+      spawn("ctl", { label: "SYN-ACK", down: false });
+      log("lF", T + `RECEIVER SYN received → reply SYN-ACK (${ev.packets} packets, ${ev.protocol.toUpperCase()} N=${ev.window})`); break;
+    case "established":
+      land(findDot((d) => d.kind === "ctl" && d.label === "SYN-ACK" && !d.lost));
+      spawn("ctl", { label: "ACK", down: true, autoLand: true });
+      S.phase = "transferring";
+      log("lF", T + `SENDER   SYN-ACK received → ACK, connection ESTABLISHED (RTT ≈ ${Math.round((ev.rtt || 0) * 1000)} ms)`); break;
+    case "send": {
+      st.sent++; if (ev.retx) st.retx++;
+      if (S.sstate[ev.i] !== 2) S.sstate[ev.i] = 1;
+      S.base = ev.base; S.wnd = ev.wnd;
+      spawn("data", { i: ev.i, seq: ev.seq, retx: ev.retx });
+      if (ev.retx) flashBox(S.sBox[ev.i], "var(--retx)");
+      log("lS", T + `SENDER   ${ev.retx ? "RESEND" : "send  "} DATA #${ev.i} (seq ${ev.seq})`);
+      paintRows(); updateInfo(); break;
+    }
+    case "link": {
+      const isData = ev.src === "L>";
+      let d = null;
+      if (ev.kind === "DATA") d = findDot((x) => x.kind === "data" && x.seq === ev.seq && !x.lost && !x.corrupt, true);
+      else if (ev.kind === "ACK" && !isData) d = findDot((x) => x.kind === "ack" && x.seq === ev.seq && !x.lost && !x.corrupt, true);
+      else d = findDot((x) => x.kind === "ctl" && !x.lost, true);
+      const what = ev.kind === "DATA" ? `DATA seq ${ev.seq}` : ev.kind === "ACK" ? `ACK ${ev.ack}` : ev.kind;
+      if (ev.what === "DROP" || ev.what === "QDROP" || ev.what === "BURST") {
+        if (d) d.lost = true;
+        if (isData) st.dlost++; else st.alost++;
+        log("lL", T + `NETWORK  ✗ ${what} lost`);
+      } else if (ev.what === "CORRUPT") {
+        if (d) d.corrupt = true;
+        log("lL", T + `NETWORK  ⚡ bit errors in ${what}`);
+      } else if (ev.what === "DUP" && d) {
+        const c = spawn(d.kind, { i: d.i, seq: d.seq, ack: d.ack, col: d.col, retx: d.retx, label: d.label, down: d.down });
+        c.born -= 120;
+        log("lL", T + `NETWORK  ⧉ ${what} duplicated`);
+      }
+      break;
+    }
+    case "rx": {
+      const d = findDot((x) => x.kind === "data" && x.seq === ev.seq && !x.lost && !x.corrupt);
+      const col = d ? d.i : (ev.idx != null ? ev.idx : S.rbase);
+      land(d); S.lastCol = col;
+      for (const k of ev.delivered || []) if (k < S.n) { if (S.rstate[k] !== 3) S.rstate[k] = 2; st.delivered++; }
+      if (ev.action === "buffer" && ev.idx < S.n) { S.rstate[ev.idx] = 1; st.buffered++; }
+      S.rbase = ev.base;
+      const rb = S.rBox[Math.min(col, S.n - 1)];
+      if (ev.action === "discard") { st.discarded++; flashBox(rb, "var(--bad)"); floatText(colX(col), Y_R - 4, "discard", "var(--bad)"); }
+      if (ev.action === "dup" || ev.action === "old") { flashBox(rb, "var(--muted)"); floatText(colX(col), Y_R - 4, "dup", "var(--muted)"); }
+      if (ev.action === "buffer") floatText(colX(col), Y_R - 4, "buffer", "var(--buffered)");
+      const words = { deliver: "in order → deliver" + ((ev.delivered || []).length > 1 ? ` #${ev.delivered[0]}..#${ev.delivered[ev.delivered.length - 1]}` : ""),
+        buffer: `out of order → buffer as #${ev.idx}`, discard: `out of order (expecting ${S.rbase % S.M}) → DISCARD`,
+        dup: "duplicate → discard, re-ACK", old: "old duplicate (its ACK was lost) → ACK again", outside: "outside window → ignore" };
+      log("lR", T + `RECEIVER got seq ${ev.seq}: ${words[ev.action] || ev.action}`);
+      paintRows(); updateInfo(); break;
+    }
+    case "wrongdata":
+      if (ev.idx < S.n) { S.rstate[ev.idx] = 3; paintRows(); floatText(colX(ev.idx), Y_R - 4, "STALE!", "var(--bad)"); }
+      log("lT", T + `RECEIVER ⚠ packet #${ev.idx} holds STALE data: an old retransmission had the same sequence number (${ev.idx % S.M}) as a new packet`);
+      break;
+    case "rx_corrupt": {
+      const d = findDot((x) => x.corrupt && !x.lost);
+      const col = d && d.kind === "data" ? d.i : S.rbase;
+      land(d); st.corrupt++;
+      floatText(colX(col), Y_R - 4, "CRC ✗", "var(--corrupt)");
+      flashBox(S.rBox[Math.min(col, S.n - 1)], "var(--corrupt)");
+      log("lL", T + "RECEIVER CRC-32 mismatch → frame dropped silently"); break;
+    }
+    case "rx_ack":
+      spawn("ack", { seq: ev.seq, ack: ev.ack, col: S.lastCol });
+      log("lR", T + `RECEIVER send ACK ${ev.ack}` + (S.cfg.protocol === "sr" ? ` (for seq ${ev.seq})` : " (next expected)")); break;
+    case "ack": {
+      st.acks++;
+      land(findDot((x) => x.kind === "ack" && x.seq === ev.sel && !x.lost && !x.corrupt) ||
+           findDot((x) => x.kind === "ack" && !x.lost && !x.corrupt));
+      if (ev.sel_i != null && ev.sel_i < S.n) S.sstate[ev.sel_i] = 2;
+      for (let k = 0; k < Math.min(ev.base, S.n); k++) S.sstate[k] = 2;
+      S.base = ev.base; if (ev.wnd) S.wnd = ev.wnd;
+      if (ev.stale) log("lM", T + `SENDER   ACK ${ev.ack} is stale → ignored`);
+      else if (ev.dup) log("lS", T + `SENDER   ACK ${ev.ack}: duplicate #${ev.n}, still waiting for #${ev.base}`);
+      else log("lS", T + `SENDER   ACK ${ev.ack} → window slides, base = #${ev.base}`);
+      paintRows(); updateInfo(); break;
+    }
+    case "corrupt":
+      land(findDot((x) => x.kind === "ack" && x.corrupt));
+      st.corrupt++; log("lL", T + "SENDER   corrupt ACK dropped (CRC mismatch)"); break;
+    case "timers":
+      S.rto = ev.rto; S.timers = new Map(ev.timers.map(([i, age]) => [i, performance.now() - age * 1000])); break;
+    case "timeout":
+      st.timeouts++;
+      for (const i of ev.i) if (i < S.n) { flashBox(S.sBox[i], "var(--bad)"); floatText(colX(i), Y_S - 2, "⏰", "var(--bad)"); }
+      log("lT", T + `SENDER   TIMEOUT for #${ev.i.join(", #")} → ` + (ev.gbn ? `go back, resend from #${ev.i[0]}` : "resend only these") +
+          ` (RTO now ${Math.round(ev.rto * 1000)} ms)`); break;
+    case "fastretx":
+      st.fast++; if (ev.i < S.n) floatText(colX(ev.i), Y_S - 2, "⚡3 dup", "var(--ctl)");
+      log("lT", T + `SENDER   ${ev.sack ? "SACK shows hole" : "3 duplicate ACKs"} → fast retransmit #${ev.i}`); break;
+    case "cwnd":
+      S.cw.push({ t: ev.t, c: ev.cwnd, s: ev.ssthresh });
+      log("lM", T + `SENDER   cwnd = ${ev.cwnd.toFixed(2)}, ssthresh = ${ev.ssthresh > 1e5 ? "∞" : ev.ssthresh.toFixed(1)} (${ev.state})`);
+      drawCwnd(); updateInfo(); break;
+    case "fin":
+      S.phase = "closing"; S.timers.clear();
+      spawn("ctl", { label: "FIN", down: true });
+      log("lF", T + `SENDER   all packets ACKed → FIN with SHA-256 of the file${ev.attempt > 1 ? " (retry)" : ""}`); break;
+    case "rx_fin":
+      land(findDot((d) => d.kind === "ctl" && d.label === "FIN" && !d.lost));
+      spawn("ctl", { label: "FIN-ACK", down: false });
+      log(ev.ok ? "lR" : "lT", T + `RECEIVER FIN: ${ev.bytes} bytes, SHA-256 ${ev.ok ? "matches ✔" : "DOES NOT MATCH ✘ (" + ev.reason + ")"}`); break;
+    case "finack":
+      land(findDot((d) => d.kind === "ctl" && d.label === "FIN-ACK"));
+      log("lF", T + "SENDER   FIN-ACK received → connection closed"); break;
+    case "end": finish(ev); break;
+    case "error":
+      finish(null, ev.msg); break;
+  }
+  renderStats();
+}
+
+function finish(ev, err) {
+  S.ended = true; S.timers.clear();
+  const b = $("banner");
+  const ok = ev && (ev.receiver_ok ?? ev.verified);
+  let secs = ev && ev.summary ? ev.summary.total_s.toFixed(1) : null;
+  if (err) {
+    b.style.borderColor = "var(--bad)"; b.style.color = "var(--bad)";
+    b.innerHTML = `✘ ${err}<small>Transfer stopped.</small>`;
+    log("lT", "ERROR " + err);
+  } else if (ok) {
+    b.style.borderColor = "var(--good)"; b.style.color = "var(--good)";
+    b.innerHTML = `✔ File delivered intact<small>SHA-256 verified · ${S.stats.sent} data packets for ${S.n} · ${secs} s</small>`;
+  } else {
+    b.style.borderColor = "var(--bad)"; b.style.color = "var(--bad)";
+    b.innerHTML = `✘ File CORRUPTED<small>SHA-256 mismatch: stale data was accepted as new</small>`;
+  }
+  b.style.display = "block";
+  $("phase").textContent = "· finished";
+  $("run").disabled = false; $("abort").disabled = true;
+}
+
+// ------------------------------------------------------------------ run control
+async function start() {
+  if (es) { es.close(); es = null; }
+  $("run").disabled = true; $("abort").disabled = false;
+  const top = svg.getBoundingClientRect().top;
+  if (top < 0 || top > innerHeight * 0.5) svg.scrollIntoView({ behavior: "smooth", block: "start" });
+  let res;
+  try {
+    res = await fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(readForm()) });
+  } catch (e) { $("run").disabled = false; alert("Cannot reach the visualizer server: " + e); return; }
+  const { run } = await res.json();
+  es = new EventSource("/events?run=" + run);
+  es.onmessage = (m) => handle(JSON.parse(m.data));
+  es.addEventListener("close", () => { es.close(); es = null; });
+  es.onerror = () => { if (es && es.readyState === EventSource.CLOSED) { es = null; } };
+  if (!raf) raf = requestAnimationFrame(tick);
+}
+$("run").onclick = () => { document.querySelectorAll(".chip").forEach((c) => c.classList.remove("on")); $("watch").textContent = ""; start(); };
+$("abort").onclick = () => fetch("/abort", { method: "POST" });
+$("protocol").onchange = () => { if ($("protocol").value === "sw") $("window").value = 1; };
+$("theme").onclick = () => {
+  const r = document.documentElement;
+  const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("rudp-theme", r.dataset.theme); } catch (e) {}
+  if (S) drawCwnd();
+};
+try { const t = localStorage.getItem("rudp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+setForm(PRESETS[1].p);
+$("watch").innerHTML = "Pick a scenario to run it, or change the settings and press <b>Run transfer</b>. " + PRESETS[1].watch;
+</script>
+</body>
+</html>

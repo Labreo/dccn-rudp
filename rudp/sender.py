@@ -92,7 +92,8 @@ class BaseSender:
 
     def __init__(self, sock: ImpairedSocket, dest: tuple, cfg: SenderConfig,
                  log: Optional[EventLog] = None,
-                 progress: Optional[Callable[["BaseSender"], None]] = None):
+                 progress: Optional[Callable[["BaseSender"], None]] = None,
+                 on_event: Optional[Callable[[dict], None]] = None):
         self.sock = sock
         self.dest = dest
         self.cfg = cfg
@@ -103,6 +104,9 @@ class BaseSender:
         self.trace = Trace()
         self.log = log or EventLog(False)
         self.progress = progress
+        self.on_event = on_event  # structured events for the live visualizer
+        self._aborted = False
+        self._last_timers = None
         self.conn_id = random.randint(1, 0xFFFF)
         self.rwnd = cfg.window
         self.segments: list[bytes] = []
@@ -162,6 +166,20 @@ class BaseSender:
     def _now(self) -> float:
         return time.monotonic() - self.t_data
 
+    def _emit(self, kind: str, **fields) -> None:
+        if self.on_event is not None:
+            fields["type"] = kind
+            fields["src"] = "S"
+            self.on_event(fields)
+
+    def abort(self) -> None:
+        """Stop the transfer from another thread (raises TransferError inside)."""
+        self._aborted = True
+
+    def _check_abort(self) -> None:
+        if self._aborted:
+            raise TransferError("aborted")
+
     def _send(self, pkt: Packet) -> None:
         pkt.conn_id = self.conn_id
         raw = pkt.encode(self.cfg.checksum)
@@ -188,6 +206,7 @@ class BaseSender:
             except CorruptPacket as e:
                 self.stats.corrupt_received += 1
                 self.log("BADCRC", f"discarded corrupt frame from receiver ({e})")
+                self._emit("corrupt")
                 continue
             if pkt.conn_id != self.conn_id:
                 continue
@@ -205,6 +224,7 @@ class BaseSender:
             self.trace.cwnd.append((self._now(), cw, ss, self.cc.state))
             if cw is not None:
                 self.log("CWND", f"cwnd={cw:.2f} ssthresh={ss:.1f} [{self.cc.state}]")
+                self._emit("cwnd", cwnd=round(cw, 3), ssthresh=ss, state=self.cc.state)
 
     def _rtt_sample(self, sent_at: float) -> None:
         r = time.monotonic() - sent_at
@@ -220,7 +240,9 @@ class BaseSender:
     def _handshake(self, meta: dict) -> None:
         syn = Packet(SYN, seq=0, window=self.cfg.window, payload=json.dumps(meta).encode())
         for attempt in range(1, self.cfg.max_retries + 1):
+            self._check_abort()
             sent_at = time.monotonic()
+            self._emit("syn", attempt=attempt)
             self._send(syn)
             self.log("SYN", f"connect to {self.dest[0]}:{self.dest[1]} conn_id={self.conn_id}"
                             f" ({self.protocol.upper()}, N={self.cfg.window}, m={self.cfg.seq_bits})")
@@ -238,6 +260,7 @@ class BaseSender:
                                            f"{(self.rtt.srtt or 0) * 1000:.1f} ms")
                         self._send(Packet(ACK, seq=0, ack=0))
                         self.log("ACK", "3-way handshake complete -> ESTABLISHED")
+                        self._emit("established", rtt=self.rtt.srtt, rto=self.rtt.rto, rwnd=self.rwnd)
                         return
             self.stats.handshake_retries += 1
             self.rtt.backoff()
@@ -249,7 +272,9 @@ class BaseSender:
         fin = Packet(FIN, seq=self.total % self.M,
                      payload=json.dumps({"sha256": sha, "size": size, "packets": self.total}).encode())
         for attempt in range(self.cfg.max_retries):
+            self._check_abort()
             sent_at = time.monotonic()
+            self._emit("fin", attempt=attempt + 1)
             self._send(fin)
             self.log("FIN", f"all {self.total} packets ACKed, closing (sha256={sha[:12]}...)")
             deadline = sent_at + self.rtt.rto
@@ -257,6 +282,7 @@ class BaseSender:
                 for p in self._recv(left):
                     if p.is_(FIN, ACK):
                         reply = json.loads(p.payload or b"{}")
+                        self._emit("finack", ok=bool(reply.get("ok")), reason=reply.get("reason", ""))
                         self.log("FINACK", "receiver says " + ("file OK" if reply.get("ok") else
                                                               "file CORRUPT: " + reply.get("reason", "")))
                         return reply
@@ -267,6 +293,7 @@ class BaseSender:
 
     def _run(self) -> None:
         while not self._done():
+            self._check_abort()
             self._fill_window()
             deadline = self._next_deadline()
             wait = 0.05 if deadline is None else min(0.5, deadline - time.monotonic())
@@ -279,15 +306,31 @@ class BaseSender:
                     self._send(Packet(ACK, seq=0, ack=0))
             self._check_timeouts()
             self._trace_cwnd()
+            if self.on_event is not None:
+                self._emit_timers()
             if self.progress and time.monotonic() - self._last_progress > 0.2:
                 self._last_progress = time.monotonic()
                 self.progress(self)
+
+    def _emit_timers(self) -> None:
+        timers = self._timers()
+        if timers != self._last_timers:
+            self._last_timers = timers
+            now = time.monotonic()
+            self._emit("timers", rto=self.rtt.rto,
+                       timers=[[i, round(now - start, 4)] for i, start in timers])
+
+    def _timers(self) -> list:
+        """Running retransmission timers as (packet index, start time)."""
+        return []
 
     def _send_data(self, i: int, retx: bool) -> None:
         self.stats.data_packets_sent += 1
         if retx:
             self.stats.retransmissions += 1
         self.trace.sends.append((self._now(), i, retx))
+        self._emit("send", i=i, seq=i % self.M, retx=retx, base=self.base, wnd=self.effective_window(),
+                   rto=self.rtt.rto)
         self._send(Packet(DATA, seq=i % self.M, window=self.cfg.window, payload=self.segments[i]))
         self.log("RETX" if retx else "SEND", f"DATA #{i} seq={i % self.M} "
                                              f"(window={self.effective_window()})")
@@ -347,6 +390,9 @@ class GoBackNSender(BaseSender):
     def _next_deadline(self) -> Optional[float]:
         return None if self.timer is None else self.timer + self.rtt.rto
 
+    def _timers(self) -> list:
+        return [] if self.timer is None else [(self.base, self.timer)]
+
     def _on_ack(self, p: Packet) -> None:
         now = time.monotonic()
         off = (p.ack - self.base) % self.M  # how far the cumulative ACK moved
@@ -356,6 +402,8 @@ class GoBackNSender(BaseSender):
                 self.dupacks += 1
                 self.stats.dup_acks += 1
                 self.log("DUPACK", f"ack={p.ack} (duplicate #{self.dupacks}, base=#{self.base})")
+                self._emit("ack", ack=p.ack, sel=p.seq, base=self.base, dup=True, n=self.dupacks,
+                           wnd=self.effective_window())
                 if self.cc.on_dup_ack(self.dupacks, self.next - self.base):
                     # The GBN receiver discarded everything after the hole, so
                     # "fast retransmit" means going back N right now instead of
@@ -363,10 +411,13 @@ class GoBackNSender(BaseSender):
                     self.stats.fast_retransmits += 1
                     self.trace.events.append((self._now(), "fastretx", self.base))
                     self.log("FASTRETX", f"3 duplicate ACKs -> go back to #{self.base} now")
+                    self._emit("fastretx", i=self.base)
                     self.next = self.base
                     self.timer = None
             return
         if off > in_flight:
+            self._emit("ack", ack=p.ack, sel=p.seq, base=self.base, dup=False, stale=True,
+                       wnd=self.effective_window())
             return  # stale ACK from before a go-back; ignore
         last = self.base + off - 1
         if last not in self.retx and last in self.sent_at:
@@ -381,6 +432,8 @@ class GoBackNSender(BaseSender):
         self.cc.on_new_ack(off)
         self.trace.acks.append((self._now(), self.base))
         self.log("ACK", f"ack={p.ack} -> {off} packet(s) ACKed, base=#{self.base}")
+        self._emit("ack", ack=p.ack, sel=p.seq, base=self.base, dup=False, n=off,
+                   wnd=self.effective_window())
         self.timer = now if self.base < self.next else None
 
     def _check_timeouts(self) -> None:
@@ -393,6 +446,7 @@ class GoBackNSender(BaseSender):
         self.trace.events.append((self._now(), "timeout", self.base))
         self.cc.on_timeout(self.next - self.base)
         self.rtt.backoff()
+        self._emit("timeout", i=[self.base], rto=self.rtt.rto, gbn=True)
         self.log("TIMEOUT", f"timer for #{self.base} expired -> go back to #{self.base}"
                             f" (resend {self.next - self.base}), RTO={self.rtt.rto * 1000:.0f} ms")
         self.next = self.base  # Go back N
@@ -448,6 +502,9 @@ class SelectiveRepeatSender(BaseSender):
             return None
         return min(self.unacked.values()) + self.rtt.rto
 
+    def _timers(self) -> list:
+        return sorted(self.unacked.items())
+
     def _mark_acked(self, i: int, sample: bool) -> bool:
         sent_at = self.unacked.pop(i, None)
         if sent_at is None:
@@ -480,6 +537,9 @@ class SelectiveRepeatSender(BaseSender):
             self.acked.discard(self.base)
             self.base += 1
         moved = self.base - old_base
+        self._emit("ack", ack=p.ack, sel=p.seq, sel_i=(old_base + sel) if got_sel else None,
+                   base=self.base, dup=not moved and self.base < self.next,
+                   n=self.dupacks + (0 if moved else 1), wnd=self.effective_window())
         if moved:
             self.rtt.reset_backoff()
             self.dupacks = 0
@@ -499,6 +559,7 @@ class SelectiveRepeatSender(BaseSender):
                 self.recovery_point = self.next
                 self.trace.events.append((self._now(), "fastretx", self.base))
                 self.log("FASTRETX", f"3 duplicate ACKs -> resend #{self.base} now")
+                self._emit("fastretx", i=self.base)
                 self._retransmit(self.base)
                 return
         self._sack_repair()
@@ -524,6 +585,7 @@ class SelectiveRepeatSender(BaseSender):
                 self.stats.fast_retransmits += 1
                 self.trace.events.append((self._now(), "fastretx", i))
                 self.log("FASTRETX", f"SACK shows hole at #{i} (later packets arrived) -> resend")
+                self._emit("fastretx", i=i, sack=True)
                 self._retransmit(i)
                 return
 
@@ -542,6 +604,7 @@ class SelectiveRepeatSender(BaseSender):
         if new_loss_event or expired[0] in self.retx:  # a retransmission was lost too
             self.rtt.backoff()
         budget = len(expired) if self.cc.window() == float("inf") else max(1, int(self.cc.window()))
+        self._emit("timeout", i=expired, rto=self.rtt.rto)
         self.log("TIMEOUT", f"timer(s) expired for {['#%d' % i for i in expired[:8]]}"
                             f"{'...' if len(expired) > 8 else ''} -> resend only those"
                             f" (RTO={self.rtt.rto * 1000:.0f} ms)")

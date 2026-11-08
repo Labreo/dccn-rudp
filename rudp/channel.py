@@ -156,13 +156,14 @@ class ImpairedSocket:
 
         # 3. Bit errors
         if cfg.corrupt > 0 and rng.random() < cfg.corrupt:
+            original = data
             buf = bytearray(data)
             for _ in range(rng.randint(1, 3)):
                 bit = rng.randrange(len(buf) * 8)
                 buf[bit // 8] ^= 1 << (bit % 8)
             data = bytes(buf)
             st.corrupted += 1
-            self._emit("CORRUPT", data)
+            self._emit("CORRUPT", original)  # report which frame was hit, not the garbled bytes
 
         copies = 1
         if cfg.duplicate > 0 and rng.random() < cfg.duplicate:

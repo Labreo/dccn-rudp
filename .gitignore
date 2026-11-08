@@ -4,3 +4,4 @@ __pycache__/
 received/
 *.part
 .DS_Store
+.claude/

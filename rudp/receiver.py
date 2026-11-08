@@ -31,7 +31,7 @@ import os
 import select
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 from .channel import ImpairedSocket
 from .log import EventLog
@@ -108,7 +108,7 @@ class _Session:
 
 class Receiver:
     def __init__(self, sock: ImpairedSocket, cfg: Optional[ReceiverConfig] = None,
-                 log: Optional[EventLog] = None):
+                 log: Optional[EventLog] = None, on_event: Optional[Callable[[dict], None]] = None):
         self.sock = sock
         self.cfg = cfg or ReceiverConfig()
         self.log = log or EventLog(False)
@@ -117,6 +117,20 @@ class Receiver:
         self._raw.setblocking(False)
         self.session: Optional[_Session] = None
         self._stop = False
+        self.on_event = on_event
+        self.on_deliver: Optional[Callable[[int, bytes], None]] = None  # (index, payload) hook
+
+    def _deliver(self, s: "_Session", payload: bytes) -> None:
+        idx = s.expected
+        s.deliver(payload)
+        if self.on_deliver is not None:
+            self.on_deliver(idx, payload)
+
+    def _emit(self, kind: str, **fields) -> None:
+        if self.on_event is not None:
+            fields["type"] = kind
+            fields["src"] = "R"
+            self.on_event(fields)
 
     def stop(self) -> None:
         """Ask serve_one() to return (ends TIME_WAIT early)."""
@@ -179,6 +193,7 @@ class Receiver:
         except CorruptPacket as e:
             self.stats.corrupt_dropped += 1
             self.log("BADCRC", f"frame from {addr[0]}:{addr[1]} failed check ({e}) -> dropped")
+            self._emit("rx_corrupt")
             return
         s = self.session
 
@@ -228,6 +243,8 @@ class Receiver:
         s = self.session = _Session(pkt, addr, meta, self.cfg.out_dir)
         self.log("SYN", f"from {addr[0]}:{addr[1]} conn_id={s.conn_id}: '{s.name}' {s.size:,} bytes,"
                         f" {s.total_packets} packets, {s.protocol.upper()} N={s.window} m={s.seq_bits}")
+        self._emit("rx_syn", name=s.name, size=s.size, packets=s.total_packets, protocol=s.protocol,
+                   window=s.window, seq_bits=s.seq_bits)
         self._send_synack(s)
 
     def _send_synack(self, s: _Session) -> None:
@@ -236,6 +253,7 @@ class Receiver:
         self.log("SYNACK", f"sent, rwnd={s.rwnd()}")
 
     def _ack(self, s: _Session, sel_seq: int) -> None:
+        self._emit("rx_ack", seq=sel_seq, ack=s.expected % s.M, rwnd=s.rwnd())
         self._send(Packet(ACK, conn_id=s.conn_id, seq=sel_seq, ack=s.expected % s.M,
                           window=s.rwnd()), s.peer, s.checksum)
         self.stats.acks_sent += 1
@@ -250,9 +268,10 @@ class Receiver:
     def _on_data_gbn(self, s: _Session, pkt: Packet) -> None:
         if pkt.seq == s.expected % s.M and s.expected < s.total_packets:
             idx = s.expected
-            s.deliver(pkt.payload)
+            self._deliver(s, pkt.payload)
             self.log("DELIVER", f"seq={pkt.seq} in order -> packet #{idx} delivered,"
                                 f" ACK next={s.expected % s.M}")
+            self._emit("rx", seq=pkt.seq, idx=idx, action="deliver", delivered=[idx], base=s.expected)
         else:
             if (s.expected - 1 - pkt.seq) % s.M < s.window or s.expected >= s.total_packets:
                 self.stats.duplicates += 1
@@ -262,6 +281,8 @@ class Receiver:
                 why = "out of order"
             self.log("DISCARD", f"seq={pkt.seq} {why} (expecting {s.expected % s.M}) -> discard,"
                                 f" re-ACK {s.expected % s.M}")
+            self._emit("rx", seq=pkt.seq, idx=None, action="discard" if why == "out of order" else "dup",
+                       base=s.expected)
         self._ack(s, pkt.seq)
 
     def _on_data_sr(self, s: _Session, pkt: Packet) -> None:
@@ -269,13 +290,17 @@ class Receiver:
         off = (pkt.seq - base) % M
         if off < N:  # inside the receive window
             idx = base + off
+            action = "outside"
             if idx < s.total_packets:
                 if idx in s.buffer:
                     self.stats.duplicates += 1
+                    action = "dup"
                     self.log("DISCARD", f"seq={pkt.seq} already buffered")
                 elif off == 0:
+                    action = "deliver"
                     s.buffer[idx] = pkt.payload
                 else:
+                    action = "buffer"
                     s.buffer[idx] = pkt.payload
                     self.stats.out_of_order_buffered += 1
                     self.log("BUFFER", f"seq={pkt.seq} out of order -> buffered as #{idx}"
@@ -284,18 +309,21 @@ class Receiver:
                 delivered = []
                 while s.expected in s.buffer:
                     delivered.append(s.expected)
-                    s.deliver(s.buffer.pop(s.expected))
+                    self._deliver(s, s.buffer.pop(s.expected))
                 if delivered:
                     rng = f"#{delivered[0]}" + (f"..#{delivered[-1]}" if len(delivered) > 1 else "")
                     self.log("DELIVER", f"seq={pkt.seq} -> delivered {rng}, window base now #{s.expected}")
+                self._emit("rx", seq=pkt.seq, idx=idx, action=action, delivered=delivered, base=s.expected)
             self._ack(s, pkt.seq)
         elif off >= M - N:  # old duplicate from the previous window
             self.stats.duplicates += 1
             self.log("DISCARD", f"seq={pkt.seq} old duplicate (ACK was lost) -> ACK it again")
+            self._emit("rx", seq=pkt.seq, idx=None, action="old", base=s.expected)
             self._ack(s, pkt.seq)
         else:
             self.stats.outside_window += 1
             self.log("DISCARD", f"seq={pkt.seq} outside both windows -> ignored")
+            self._emit("rx", seq=pkt.seq, idx=None, action="outside", base=s.expected)
 
     def _on_fin(self, s: _Session, pkt: Packet) -> None:
         if s.fin_reply is None:
@@ -320,6 +348,7 @@ class Receiver:
                                       "reason": reason}).encode()
             s.state = TIME_WAIT
             s.time_wait_until = time.monotonic() + self.cfg.linger
+            self._emit("rx_fin", ok=ok, reason=reason, sha256=digest, bytes=s.received_bytes)
             self.log("OK" if ok else "FAIL",
                      f"FIN: {s.received_bytes:,} bytes, sha256 {'matches' if ok else 'DOES NOT match'}"
                      f" -> saved {final}")

@@ -22,6 +22,8 @@ computers. All the reliability comes from code written here, not from TCP:
 | End-to-end integrity | FIN payload | SHA-256 of the whole file, checked by the receiver |
 | An unreliable link | [rudp/channel.py](rudp/channel.py) | Emulated bandwidth, propagation delay, drop-tail queue, random and burst loss, bit errors, duplication, jitter/reordering |
 | Measurement | [rudp/experiments.py](rudp/experiments.py) | Six experiments that produce CSVs, graphs and [results/REPORT.md](results/REPORT.md) |
+| Live visualizer | [rudp/viz.py](rudp/viz.py), [rudp/web/viz.html](rudp/web/viz.html) | A browser page that animates a *real* transfer in slow motion: packets flying, losses, sliding windows, timers, cwnd |
+| Router / middlebox | [rudp/router.py](rudp/router.py) | Relays datagrams between sender and receiver through an impaired link, like a congested router in the middle of the network |
 
 The protocol code uses only the Python standard library. Matplotlib is only
 needed for the graphs.
@@ -32,7 +34,9 @@ needed for the graphs.
 
 1. [Quick start](#1-quick-start)
 2. [Sending a file between two laptops](#2-sending-a-file-between-two-laptops)
+   (and [through a router](#putting-the-bad-network-in-the-middle-router))
 3. [Viva and demo script](#3-viva-and-demo-script)
+   (and the [live visualizer](#live-visualizer))
 4. [How it works](#4-how-it-works)
 5. [Experiments and results](#5-experiments-and-results)
 6. [Syllabus mapping](#6-syllabus-mapping)
@@ -51,8 +55,16 @@ Requirements: Python 3.10 or newer.
 pip install -r requirements.txt
 ```
 
-Watch a Go-Back-N transfer over a link that drops 15% of packets. Every send,
-loss, timeout, ACK and delivery is printed in colour:
+Open the live visualizer in your browser and click a scenario. A real
+transfer runs in slow motion while the page animates every packet:
+
+```bash
+python -m rudp viz
+```
+
+Or watch the same thing as a coloured log in the terminal: a Go-Back-N
+transfer over a link that drops 15% of packets, with every send, loss,
+timeout, ACK and delivery printed:
 
 ```bash
 python -m rudp demo
@@ -64,7 +76,7 @@ The same demo with Selective Repeat, so you can compare:
 python -m rudp demo --proto sr
 ```
 
-Run the test suite (44 tests, about 20 s):
+Run the test suite (51 tests, about 30 s):
 
 ```bash
 python -m pytest -q
@@ -133,11 +145,70 @@ python -m rudp plot run.json
 This writes `run_seq.png` (sequence number vs time), `run_rtt.png` (RTT, SRTT,
 RTO) and `run_cwnd.png` (congestion window).
 
+### Putting the bad network in the middle (router)
+
+Instead of each end impairing its own packets, a third program can act as a
+lossy router between them. It only relays UDP datagrams and knows nothing
+about RUDP, so the protocol has to cope with whatever the router does. Use
+three laptops, or three terminals on one machine:
+
+```bash
+python -m rudp recv --port 9001
+```
+
+```bash
+python -m rudp router --port 9000 --to RECEIVER_IP:9001 --loss 0.08 --corrupt 0.02 --delay 15 --rate 6000 --queue 30 --ack-loss 0.05
+```
+
+```bash
+python -m rudp send big.pdf --to ROUTER_IP:9000 --proto sr --window 32 --cc reno
+```
+
+The router prints how many packets it forwarded, lost, corrupted and dropped
+from its queue every 5 seconds (`-v` logs every damaged frame). In testing,
+a 500 KB file crossed this exact setup (8% loss, 2% bit errors, a 6 Mbit/s
+bottleneck with a 30-packet queue, 5% ACK loss) and arrived byte-for-byte
+identical.
+
 ---
 
 ## 3. Viva and demo script
 
-About 8 minutes; each step shows one syllabus topic.
+### Live visualizer
+
+```bash
+python -m rudp viz
+```
+
+This opens `http://localhost:8765`. Pick a scenario, or set the protocol,
+window, sequence bits, congestion control, losses, bit errors, duplicates,
+delay and jitter yourself, then press **Run transfer**. The page is driven by
+a real transfer: real sender and receiver code over real UDP sockets. The
+link just gets a long delay (700 ms by default) so it can be followed by eye.
+
+| On screen | Meaning |
+|---|---|
+| Top row of boxes | The sender's packets: grey = not sent, blue = waiting for ACK, green = ACKed. The blue frame is the **send window** [base, base+N), and it slides as ACKs arrive. |
+| Bottom row of boxes | The receiver: green = delivered in order, purple = buffered out of order (SR), red = **stale data accepted** (unsafe window). The dashed frame is the **receive window**. |
+| Small numbers above/below | The sequence number on the wire (index mod 2^m) when m < 32, so you can see the numbers wrap. |
+| Blue / amber boxes flying down | DATA / retransmitted DATA. Orange means bit errors were injected. |
+| Green circles flying up | ACKs, labelled with the ACK number. |
+| Red ✗ | Lost on the link. |
+| Bar under a sender box | Its retransmission timer filling up (green → amber → red). GBN shows one timer, SR one per packet. |
+| ⏰ / ⚡3 dup / "discard" / "buffer" / "CRC ✗" / "STALE!" | Timeout, fast retransmit, GBN discard, SR buffering, CRC failure, stale data. |
+| Chart | cwnd (solid) and ssthresh (dashed) when Tahoe/Reno is on. |
+| Event log | Every event in words, e.g. "RECEIVER got seq 3: out of order (expecting 1) → DISCARD". |
+| Banner | "File delivered intact" (SHA-256 verified) or "File CORRUPTED". |
+
+The built-in scenarios are Stop-and-Wait, Go-Back-N, Selective Repeat (same
+seed as Go-Back-N for a direct comparison), Lost ACKs, Bit errors (CRC),
+Reordering, TCP Reno and Unsafe window. Each one shows a "what to watch"
+note.
+
+### Viva script
+
+About 8 minutes; each step shows one syllabus topic. Steps 2-7 work either
+in the visualizer (click the scenario) or in the terminal (`demo` command).
 
 | # | Command | What to point out |
 |---|---|---|
@@ -148,8 +219,9 @@ About 8 minutes; each step shows one syllabus topic.
 | 5 | `python -m rudp demo --proto sr --packets 10 --corrupt 0.3 --loss 0` | Bit errors on the link. The receiver logs `BADCRC ... dropped`, and the timeout recovers. |
 | 6 | `python -m rudp demo --proto sr --cc reno --window 16 --packets 60 --loss 0.05` | Slow start (cwnd 1, 2, 4, 8 ...), 3 duplicate ACKs, fast retransmit, cwnd halves. |
 | 7 | `python -m rudp demo --proto sr --seq-bits 3 --window 6 --unsafe --packets 40 --loss 0.1 --ack-loss 0.4` | Breaks the SR rule N <= 2^(m-1). An old duplicate is accepted as new data, and the final integrity check reports **CORRUPTED**. Run it again with `--window 4` and it is always correct. |
-| 8 | two laptops, section 2 | Real transfer across the network. |
-| 9 | open `results/REPORT.md` | Measured graphs vs the theory. |
+| 8 | `python -m rudp viz`, then **Reordering** with GBN and then with SR | Jitter alone, no loss: GBN discards perfectly good packets and retransmits; SR just buffers them. |
+| 9 | two laptops, section 2 (optionally with the router in the middle) | Real transfer across the network. |
+| 10 | open `results/REPORT.md` | Measured graphs vs the theory. |
 
 ---
 
@@ -451,6 +523,7 @@ sooner.
 | **Unit 4:** TCP timers and RTT estimation | `rtt.py` (Jacobson/Karels, Karn, back-off) |
 | **Unit 4:** TCP congestion control: slow start, AIMD, fast retransmit, fast recovery | `congestion.py`, Experiment 3 |
 | **Unit 4:** QoS measures: throughput, delay, jitter, loss | the metrics every transfer reports |
+| **Unit 3-4:** routers / intermediate nodes, store-and-forward, queueing, drop-tail | `router.py` and the bottleneck queue in `channel.py` |
 | **Lab:** CRC / error detection, ARQ simulation, socket programming (client-server over UDP) | `rudp crc`, `rudp demo`, `rudp send` / `recv` |
 
 ---
@@ -468,6 +541,11 @@ python -m rudp send  FILE --to HOST[:PORT] [-v] [--json run.json]
 
 python -m rudp demo  [--packets 12] [--ack-loss P] [protocol + link options]
                      (defaults: --proto gbn --window 4 --loss 0.15 --delay 20 --seed 7)
+
+python -m rudp viz    [--port 8765] [--host 127.0.0.1] [--no-browser]
+
+python -m rudp router --to RECEIVER[:9001] [--port 9000] [--ack-loss P] [-v]
+                     [link options for the data direction]
 
 python -m rudp bench [--quick] [--out results] [--only exp1,exp3]
 python -m rudp plot  run.json
@@ -495,11 +573,14 @@ rudp/
   receiver.py     receiver + connection state machine
   stats.py        counters, traces, result summaries
   log.py          coloured event log
-  local.py        sender + receiver in one process (demo, bench, tests)
+  local.py        sender + receiver in one process (demo, bench, viz, tests)
+  viz.py          live visualizer server (http.server + Server-Sent Events)
+  web/viz.html    the visualizer page (no external libraries)
+  router.py       impaired UDP relay (middlebox)
   experiments.py  benchmark suite -> results/
   plots.py        matplotlib graphs
   __main__.py     command line interface
-tests/            44 pytest tests
+tests/            51 pytest tests
 results/          CSVs, PNGs, REPORT.md produced by `bench`
 ```
 
@@ -519,6 +600,10 @@ The tests check, among other things:
 * empty files, 1-bit Stop-and-Wait, the Internet-checksum mode, a small
   sequence space within the limits, refusal of illegal windows, detection of
   corruption with `--unsafe`, and file-name sanitisation
+* the visualizer's event stream (every phase of the conversation appears; a
+  stale delivery is flagged), abort, input validation, and the HTTP/SSE
+  server end to end
+* a transfer through the router over an impaired link
 
 ---
 
@@ -588,7 +673,8 @@ every byte once and in order. It is what catches the `--unsafe` window bugs.
 
 ## 10. Limitations and possible extensions
 
-* One file per connection, one connection at a time per receiver.
+* One file per connection, one connection at a time per receiver (and the
+  router serves one sender at a time).
 * Packet-counted windows (TCP counts bytes). There are no delayed ACKs, no
   Nagle, and no window scaling.
 * Implemented in Python, so the CPU limits throughput to tens of Mbit/s.
