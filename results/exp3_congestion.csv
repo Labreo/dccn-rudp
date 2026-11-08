@@ -1,0 +1,5 @@
+run,goodput_kbps,utilisation,queue_drops,retransmissions,timeouts,fast_retransmits,efficiency,srtt_ms,verified
+"SR, no CC, N=128",1286.5,0.643,1804,1804,157,0,0.454,107.5,True
+"GBN, no CC, N=128",495.0,0.248,7069,8772,72,0,0.146,99.4,True
+SR + Tahoe,1854.5,0.927,37,37,1,36,0.976,74.0,True
+SR + Reno,1902.9,0.951,35,36,1,35,0.977,77.6,True

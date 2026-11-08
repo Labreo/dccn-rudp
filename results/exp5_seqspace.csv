@@ -1,0 +1,6 @@
+protocol,seq_bits,seq_space,window,rule,correct,corrupted,stalled
+GBN,2,4,3,safe: N = 2^m - 1,6,0,0
+GBN,2,4,4,UNSAFE: N = 2^m,2,0,4
+SR,3,8,4,safe: N = 2^(m-1),6,0,0
+SR,3,8,5,UNSAFE: N > 2^(m-1),1,5,0
+SR,3,8,6,UNSAFE: N > 2^(m-1),0,6,0

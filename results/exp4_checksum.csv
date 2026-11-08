@@ -1,0 +1,10 @@
+error_pattern,trials,crc32_undetected,inet16_undetected,crc32_miss_rate,inet16_miss_rate
+1-bit,20000,0,0,0.0,0.0
+2-bit,20000,0,646,0.0,0.0323
+3-bit (odd),20000,0,67,0.0,0.00335
+burst <= 16,20000,0,0,0.0,0.0
+burst 17-32,20000,0,0,0.0,0.0
+burst 33-64,20000,0,1,0.0,5e-05
+random 8-bit,20000,0,3,0.0,0.00015
+16-bit word swap,20000,0,20000,0.0,1.0
++1/-1 in two words,20000,0,20000,0.0,1.0

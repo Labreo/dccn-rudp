@@ -1,0 +1,4 @@
+# The protocol itself (rudp/) uses only the Python standard library (3.10+).
+# These are needed only for `python -m rudp bench` / `plot` and the tests.
+matplotlib>=3.7
+pytest>=7
