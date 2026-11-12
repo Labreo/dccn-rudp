@@ -2,6 +2,8 @@
 
 **DCCN mini project (CMP-302 Data Communications and Computer Networks, CMP-303 lab)**
 
+> Presenting the project? Start with the short **[demo guide](DEMO.md)**.
+
 UDP gives you no guarantees: packets can be lost, corrupted, duplicated or
 arrive out of order. This project builds a **reliable, TCP-like transport
 protocol on top of plain UDP sockets** and uses it to send files between two
