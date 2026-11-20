@@ -1,0 +1,13 @@
+flowchart TB
+  U[/User/] -- file + options --> P1((1.0<br/>Segment and<br/>hash file))
+  P1 -- segments --> P2((2.0<br/>ARQ sender<br/>window, timers, cwnd))
+  P2 -- packets --> P3((3.0<br/>Encode and<br/>CRC-32))
+  P3 -- frames --> P4((4.0<br/>Link emulator))
+  P4 -- "damaged / delayed frames" --> P5((5.0<br/>Decode and<br/>verify CRC))
+  P5 -- valid packets --> P6((6.0<br/>ARQ receiver<br/>buffer, rwnd))
+  P6 -. ACKs .-> P2
+  P6 -- in-order data --> D1[("D1  Output file")]
+  P6 -- FIN hash --> P7((7.0<br/>SHA-256<br/>verify))
+  D1 --> P7
+  P7 -- ok / corrupt --> U
+  P2 -- stats, trace --> D2[("D2  results/ CSV, JSON")]

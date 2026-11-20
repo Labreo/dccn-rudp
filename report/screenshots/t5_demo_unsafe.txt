@@ -1,0 +1,26 @@
+$ python -m rudp demo --proto sr --seq-bits 3 --window 6 --unsafe --packets 40 --loss 0.1 --ack-loss 0.4
+DEMO: 40 packets, SR N=6 cc=none  |  data link: loss=10% corrupt=0% dup=0% delay=20.0ms jitter=0.0ms  |  ACK link: loss=40%
+
+   0.001s  SENDER  SYN      connect to 127.0.0.1:49986 conn_id=3616 (SR, N=6, m=3)
+   0.027s  RECEIVER SYN      from 127.0.0.1:56919 conn_id=3616: 'file.bin' 40,619 bytes, 40 packets, SR N=6 m=3
+   0.027s  LINK<-  DROP     ~~ link ~~ lost on wire: SYN|ACK seq=0 ack=0
+   0.027s  RECEIVER SYNACK   sent, rwnd=6
+   1.006s  SENDER  TIMEOUT  no SYN-ACK, retrying (RTO now 2000 ms)
+   1.006s  SENDER  SYN      connect to 127.0.0.1:49986 conn_id=3616 (SR, N=6, m=3)
+   ... 166 more lines ...
+   2.858s  RECEIVER FINACK   sent (TIME_WAIT 10.0s)
+   3.034s  SENDER  FIN      all 40 packets ACKed, closing (sha256=844015e55fb8...)
+   3.059s  RECEIVER FINACK   sent (TIME_WAIT 10.0s)
+   3.084s  SENDER  FINACK   receiver says file CORRUPT: sha256 mismatch
+
+================================================================
+  protocol        : SR  window=6  cc=none  seq_bits=3  checksum=crc32
+  file            : file.bin  40,619 bytes in 40 packets
+  time            : handshake 1058.0 ms, data 1.773 s, total 3.083 s
+  goodput         : 183.3 kbit/s  (22.9 KB/s)
+  packets sent    : 55  (retransmitted 15, efficiency 72.7%)
+  loss recovery   : 6 timeouts, 0 fast retransmits, 7 dup ACKs, 0 corrupt ACKs
+  RTT             : SRTT 47.3 ms, final RTO 400 ms
+  integrity       : CORRUPTED (SHA-256 mismatch)
+  receiver        : 0 corrupt frames dropped, 6 duplicates, 17 buffered / 0 discarded out-of-order
+================================================================

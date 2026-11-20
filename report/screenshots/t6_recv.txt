@@ -1,0 +1,13 @@
+$ python -m rudp recv --port 9500 --out received
+RUDP receiver listening on UDP 0.0.0.0:9500  ->  saving into 'received/'
+  this machine's address(es): 10.139.152.157
+  on the other laptop run:  python -m rudp send FILE --to 10.139.152.157:9500
+
+================================================================
+  from            : 127.0.0.1:55886  (SR)
+  file            : photo.jpg -> received/photo.jpg
+  bytes           : 524,288 / 524,288 in 3.265 s
+  frames          : 516 received, 0 failed CRC, 1 duplicates
+  out of order    : 104 buffered, 0 discarded, max buffer 10
+  integrity       : OK - SHA-256 matches
+================================================================

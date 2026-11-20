@@ -1,0 +1,16 @@
+flowchart LR
+  subgraph S["Sender process"]
+    F[(Input file)] --> SEG[Segmenter<br/>1024-byte MSS] --> ARQ[ARQ engine<br/>SW / GBN / SR]
+    RTO[RTO estimator<br/>RFC 6298] -.-> ARQ
+    CC[Congestion control<br/>Tahoe / Reno] -.-> ARQ
+    ARQ --> ENC[Encoder<br/>header + CRC-32]
+  end
+  subgraph N["Network"]
+    EM1[Link emulator<br/>DATA direction<br/>queue, loss, bit errors,<br/>duplicates, delay, jitter]
+    EM2[Link emulator<br/>ACK direction]
+  end
+  subgraph R["Receiver process"]
+    DEC[Decoder<br/>CRC-32 check] --> RW[Receive window<br/>GBN / SR] --> CONN[Connection<br/>state machine] --> SHA[SHA-256<br/>verify] --> OUT[(Output file)]
+  end
+  ENC == "DATA over UDP" ==> EM1 ==> DEC
+  RW -- "ACK over UDP" --> EM2 --> ARQ

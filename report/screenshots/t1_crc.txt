@@ -1,0 +1,18 @@
+$ python -m rudp crc 1101011011 10011
+CRC with generator G = 10011  (degree 4)
+
+  11010110110000    (message + 4 zeros)
+  10011             XOR G at bit 0
+  -----
+  01001110110000
+   10011            XOR G at bit 1
+   -----
+  00000010110000
+        10011       XOR G at bit 6
+        -----
+  00000000101000
+          10011     XOR G at bit 8
+          -----
+  00000000001110
+  remainder (CRC) = 1110
+  transmitted frame = 11010110111110

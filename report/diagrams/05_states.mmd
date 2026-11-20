@@ -1,0 +1,14 @@
+stateDiagram-v2
+  direction TB
+  [*] --> LISTEN
+  LISTEN --> SYN_RCVD: SYN / send SYN-ACK
+  SYN_RCVD --> SYN_RCVD: duplicate SYN / resend SYN-ACK
+  SYN_RCVD --> ESTABLISHED: ACK or first DATA
+  ESTABLISHED --> ESTABLISHED: DATA / ACK
+  ESTABLISHED --> TIME_WAIT: FIN / verify SHA-256, send FIN-ACK
+  TIME_WAIT --> TIME_WAIT: repeated FIN / resend FIN-ACK
+  TIME_WAIT --> CLOSED: linger timer expires
+  SYN_RCVD --> ABORTED: idle 30 s / send RST
+  ESTABLISHED --> ABORTED: idle 30 s / send RST, keep .incomplete
+  CLOSED --> [*]
+  ABORTED --> [*]

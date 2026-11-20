@@ -1,0 +1,64 @@
+$ python -m pytest -v
+============================================ test session starts =============================================
+platform darwin -- Python 3.12.11, pytest-9.1.1, pluggy-1.5.0 -- ~/miniforge3/bin/python3
+rootdir: ~/DCCN_Lab_Project
+configfile: pytest.ini
+testpaths: tests
+plugins: anyio-4.9.0, asyncio-1.4.0, Faker-40.18.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ...
+collected 51 items
+
+tests/test_channel.py::test_loss_rate_is_close_to_configured PASSED                                    [  1%]
+tests/test_channel.py::test_delay_is_applied PASSED                                                    [  3%]
+tests/test_channel.py::test_bottleneck_rate_and_queue_drop PASSED                                      [  5%]
+tests/test_channel.py::test_corruption_changes_bytes PASSED                                            [  7%]
+tests/test_channel.py::test_jitter_reorders PASSED                                                     [  9%]
+tests/test_checksum.py::test_textbook_crc_example PASSED                                               [ 11%]
+tests/test_checksum.py::test_forouzan_style_example PASSED                                             [ 13%]
+tests/test_checksum.py::test_crc32_matches_zlib_and_bitwise PASSED                                     [ 15%]
+tests/test_checksum.py::test_crc32_matches_polynomial_division PASSED                                  [ 17%]
+tests/test_checksum.py::test_internet_checksum_rfc1071_example PASSED                                  [ 19%]
+tests/test_checksum.py::test_internet_checksum_verifies_to_zero PASSED                                 [ 21%]
+tests/test_checksum.py::test_crc_catches_word_swap_inet_does_not PASSED                                [ 23%]
+tests/test_checksum.py::test_crc_detects_all_bursts_up_to_32 PASSED                                    [ 25%]
+tests/test_packet.py::test_roundtrip[crc32] PASSED                                                     [ 27%]
+tests/test_packet.py::test_roundtrip[inet16] PASSED                                                    [ 29%]
+tests/test_packet.py::test_header_is_22_bytes PASSED                                                   [ 31%]
+tests/test_packet.py::test_every_single_bit_flip_is_detected[crc32] PASSED                             [ 33%]
+tests/test_packet.py::test_every_single_bit_flip_is_detected[inet16] PASSED                            [ 35%]
+tests/test_packet.py::test_truncated_frame_rejected PASSED                                             [ 37%]
+tests/test_packet.py::test_sequence_numbers_wrap_to_32_bits PASSED                                     [ 39%]
+tests/test_packet.py::test_peek_describes_frame PASSED                                                 [ 41%]
+tests/test_rtt_cc.py::test_rto_first_sample_and_update PASSED                                          [ 43%]
+tests/test_rtt_cc.py::test_rto_backoff_and_clamp PASSED                                                [ 45%]
+tests/test_rtt_cc.py::test_reset_backoff_restores_computed_rto PASSED                                  [ 47%]
+tests/test_rtt_cc.py::test_slow_start_doubles_per_rtt PASSED                                           [ 49%]
+tests/test_rtt_cc.py::test_congestion_avoidance_adds_one_per_rtt PASSED                                [ 50%]
+tests/test_rtt_cc.py::test_tahoe_resets_to_one_on_triple_dupack PASSED                                 [ 52%]
+tests/test_rtt_cc.py::test_reno_fast_recovery PASSED                                                   [ 54%]
+tests/test_rtt_cc.py::test_timeout_always_restarts_slow_start PASSED                                   [ 56%]
+tests/test_rtt_cc.py::test_cwnd_capped_by_window PASSED                                                [ 58%]
+tests/test_transfer.py::test_file_arrives_intact_over_bad_link[sw-none] PASSED                         [ 60%]
+tests/test_transfer.py::test_file_arrives_intact_over_bad_link[gbn-none] PASSED                        [ 62%]
+tests/test_transfer.py::test_file_arrives_intact_over_bad_link[sr-none] PASSED                         [ 64%]
+tests/test_transfer.py::test_file_arrives_intact_over_bad_link[gbn-tahoe] PASSED                       [ 66%]
+tests/test_transfer.py::test_file_arrives_intact_over_bad_link[gbn-reno] PASSED                        [ 68%]
+tests/test_transfer.py::test_file_arrives_intact_over_bad_link[sr-tahoe] PASSED                        [ 70%]
+tests/test_transfer.py::test_file_arrives_intact_over_bad_link[sr-reno] PASSED                         [ 72%]
+tests/test_transfer.py::test_inet16_checksum_mode PASSED                                               [ 74%]
+tests/test_transfer.py::test_empty_file PASSED                                                         [ 76%]
+tests/test_transfer.py::test_sw_uses_alternating_bit PASSED                                            [ 78%]
+tests/test_transfer.py::test_small_sequence_space_within_limits_is_safe PASSED                         [ 80%]
+tests/test_transfer.py::test_window_too_large_for_seq_space_is_refused PASSED                          [ 82%]
+tests/test_transfer.py::test_unsafe_window_corrupts_and_is_detected PASSED                             [ 84%]
+tests/test_transfer.py::test_receiver_sanitises_file_name PASSED                                       [ 86%]
+tests/test_viz_router.py::test_events_cover_whole_conversation PASSED                                  [ 88%]
+tests/test_viz_router.py::test_wrongdata_event_marks_stale_delivery PASSED                             [ 90%]
+tests/test_viz_router.py::test_abort_stops_sender PASSED                                               [ 92%]
+tests/test_viz_router.py::test_build_config_clamps_bad_input PASSED                                    [ 94%]
+tests/test_viz_router.py::test_viz_execute_runs_a_fast_transfer PASSED                                 [ 96%]
+tests/test_viz_router.py::test_viz_http_server_serves_page_and_stream PASSED                           [ 98%]
+tests/test_viz_router.py::test_router_relays_through_impaired_link PASSED                              [100%]
+
+============================================ 51 passed in 25.84s =============================================

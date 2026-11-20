@@ -1,0 +1,22 @@
+flowchart TD
+  A([Start: send FILE --to HOST]) --> B[Read file, compute SHA-256,<br/>split into 1024-byte segments]
+  B --> C[Send SYN with file info]
+  C --> D{SYN-ACK received<br/>before RTO?}
+  D -- no --> E{retries left?}
+  E -- yes --> C
+  E -- no --> X([Fail: no connection])
+  D -- yes --> F[Send ACK, ESTABLISHED]
+  F --> G[Send new segments while<br/>in flight < min N, cwnd, rwnd]
+  G --> H[select: wait for ACK<br/>or next timer deadline]
+  H --> I{Event?}
+  I -- new ACK --> J[Slide window, RTT sample<br/>Karn's rule, cwnd grows,<br/>reset RTO back-off]
+  I -- 3 duplicate ACKs --> K[Fast retransmit<br/>GBN: go back N<br/>SR: resend lowest hole<br/>cwnd reduced]
+  I -- timer expired --> L[Retransmit<br/>GBN: whole window<br/>SR: that packet only<br/>RTO doubles, cwnd = 1]
+  J --> M{All segments ACKed?}
+  K --> M
+  L --> M
+  M -- no --> G
+  M -- yes --> N[Send FIN with SHA-256]
+  N --> O{FIN-ACK says ok?}
+  O -- yes --> P([Success: file delivered and verified])
+  O -- corrupt --> Q([Fail: hash mismatch])

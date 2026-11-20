@@ -1,0 +1,20 @@
+flowchart TD
+  A([Datagram arrives]) --> B{Magic, version,<br/>length and CRC-32 OK?}
+  B -- no --> B1[Drop silently: BADCRC<br/>no ACK, sender will retransmit]
+  B -- yes --> C{Packet type}
+  C -- SYN --> D[Create session, sanitise file name,<br/>reply SYN-ACK with rwnd]
+  C -- DATA --> E{Protocol}
+  E -- GBN / SW --> F{seq == expected?}
+  F -- yes --> G[Write payload, expected += 1]
+  F -- no --> H[Discard]
+  G --> I[Send cumulative ACK]
+  H --> I
+  E -- SR --> J{seq inside receive window?}
+  J -- no, old --> K[Re-ACK duplicate]
+  J -- yes --> L[Buffer payload]
+  L --> M[Deliver every in-order<br/>buffered packet]
+  M --> N[Send ACK: cumulative + selective seq]
+  K --> N
+  C -- FIN --> O{SHA-256 of received<br/>file matches?}
+  O -- yes --> P[Save file, FIN-ACK ok, TIME_WAIT]
+  O -- no --> Q[Save as .corrupt, FIN-ACK corrupt]

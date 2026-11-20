@@ -1,0 +1,110 @@
+classDiagram
+  direction TB
+  class Packet {
+    +flags: int
+    +seq: int
+    +ack: int
+    +window: int
+    +payload: bytes
+    +conn_id: int
+    +encode(checksum) bytes
+    +decode(raw)$ Packet
+  }
+  class SenderConfig {
+    +protocol: str
+    +window: int
+    +cc: str
+    +mss: int
+    +seq_bits: int
+    +normalised() SenderConfig
+  }
+  class BaseSender {
+    #sock: ImpairedSocket
+    #rtt: RTOEstimator
+    #cc: NoCongestionControl
+    +send_file(path) TransferResult
+    +send_bytes(data, name) TransferResult
+    +abort()
+    #_handshake(meta)
+    #_run()
+    #_teardown(sha, size)
+    #_fill_window()*
+    #_on_ack(p)*
+    #_check_timeouts()*
+  }
+  class GoBackNSender {
+    -base: int
+    -next: int
+    -timer: float
+    -dupacks: int
+  }
+  class StopAndWaitSender
+  class SelectiveRepeatSender {
+    -unacked: dict
+    -acked: set
+    -recovery_point: int
+    -_sack_repair()
+  }
+  class Receiver {
+    +serve_one(timeout) ReceiveResult
+    +serve_forever()
+    +stop()
+    -_on_syn(pkt, addr)
+    -_on_data_gbn(s, pkt)
+    -_on_data_sr(s, pkt)
+    -_on_fin(s, pkt)
+  }
+  class _Session {
+    +state: str
+    +expected: int
+    +buffer: dict
+    +deliver(payload)
+    +rwnd() int
+  }
+  class RTOEstimator {
+    +srtt: float
+    +rttvar: float
+    +rto: float
+    +sample(rtt) float
+    +backoff() float
+    +reset_backoff() float
+  }
+  class NoCongestionControl {
+    +cwnd: float
+    +ssthresh: float
+    +on_new_ack(n)
+    +on_dup_ack(count, flight) bool
+    +on_timeout(flight)
+  }
+  class Tahoe
+  class Reno
+  class ImpairedSocket {
+    +cfg: LinkConfig
+    +stats: ChannelStats
+    +sendto(data, addr)
+    +recvfrom(bufsize)
+    +close(flush)
+  }
+  class LinkConfig {
+    +loss: float
+    +corrupt: float
+    +duplicate: float
+    +delay_ms: float
+    +jitter_ms: float
+    +rate_kbps: float
+    +queue: int
+  }
+  BaseSender <|-- GoBackNSender
+  GoBackNSender <|-- StopAndWaitSender
+  BaseSender <|-- SelectiveRepeatSender
+  NoCongestionControl <|-- Tahoe
+  Tahoe <|-- Reno
+  BaseSender o-- SenderConfig
+  BaseSender *-- RTOEstimator
+  BaseSender *-- NoCongestionControl
+  BaseSender --> ImpairedSocket
+  Receiver --> ImpairedSocket
+  Receiver "1" *-- "0..1" _Session
+  ImpairedSocket o-- LinkConfig
+  BaseSender ..> Packet : creates
+  Receiver ..> Packet : decodes

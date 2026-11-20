@@ -1,0 +1,25 @@
+sequenceDiagram
+  autonumber
+  participant S as Sender
+  participant L as Link emulator
+  participant R as Receiver
+  S->>L: SYN (file name, size, protocol, N, m)
+  L->>R: SYN
+  Note over R: LISTEN → SYN_RCVD
+  R-->>S: SYN-ACK (rwnd)
+  S->>R: ACK
+  Note over R: ESTABLISHED
+  loop until every segment is ACKed
+    S->>L: DATA seq = i mod 2^m (CRC-32)
+    alt delivered intact
+      L->>R: DATA
+      R-->>S: ACK (cumulative ack, selective seq, rwnd)
+    else lost or bit error
+      L--xR: dropped / fails CRC
+      Note over S: timeout or 3 duplicate ACKs → retransmit
+    end
+  end
+  S->>R: FIN (SHA-256 of file)
+  Note over R: verify hash, save file
+  R-->>S: FIN-ACK (ok / corrupt)
+  Note over R: TIME_WAIT → CLOSED

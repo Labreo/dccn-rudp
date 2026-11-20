@@ -5,3 +5,6 @@ received/
 *.part
 .DS_Store
 .claude/
+
+# submission bundle (generated)
+dccn-rudp-source.zip

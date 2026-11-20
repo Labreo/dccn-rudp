@@ -1,0 +1,48 @@
+$ python -m rudp demo --proto sr --packets 10 --corrupt 0.3 --loss 0
+DEMO: 10 packets, SR N=4 cc=none  |  data link: loss=0% corrupt=30% dup=0% delay=20.0ms jitter=0.0ms  |  ACK link: loss=0%
+
+   0.002s  SENDER  SYN      connect to 127.0.0.1:55671 conn_id=20141 (SR, N=4, m=32)
+   0.029s  RECEIVER SYN      from 127.0.0.1:64713 conn_id=20141: 'file.bin' 9,899 bytes, 10 packets, SR N=4 m=32
+   0.029s  RECEIVER SYNACK   sent, rwnd=4
+   0.049s  SENDER  SYNACK   received, rwnd=4, initial RTT estimate 47.1 ms
+   0.050s  LINK->  CORRUPT  ~~ link ~~ bit errors in: ACK ack=0 sack=0
+   0.050s  SENDER  ACK      3-way handshake complete -> ESTABLISHED
+   0.051s  LINK->  CORRUPT  ~~ link ~~ bit errors in: DATA seq=0 len=1024
+   0.051s  SENDER  SEND     DATA #0 seq=0 (window=4)
+   0.051s  LINK->  CORRUPT  ~~ link ~~ bit errors in: DATA seq=1 len=1024
+   0.051s  SENDER  SEND     DATA #1 seq=1 (window=4)
+   0.053s  LINK->  CORRUPT  ~~ link ~~ bit errors in: DATA seq=2 len=1024
+   0.053s  SENDER  SEND     DATA #2 seq=2 (window=4)
+   0.053s  SENDER  SEND     DATA #3 seq=3 (window=4)
+   0.072s  RECEIVER BADCRC   frame from 127.0.0.1:64713 failed check (checksum mismatch) -> dropped
+   0.072s  RECEIVER BADCRC   frame from 127.0.0.1:64713 failed check (checksum mismatch) -> dropped
+   0.075s  RECEIVER BADCRC   frame from 127.0.0.1:64713 failed check (checksum mismatch) -> dropped
+   0.075s  RECEIVER BADCRC   frame from 127.0.0.1:64713 failed check (checksum mismatch) -> dropped
+   0.076s  RECEIVER BUFFER   seq=3 out of order -> buffered as #3 (waiting for #0)
+   0.102s  SENDER  ACK      sack=#3 buffered by receiver, still missing #0 (dup #1)
+   0.255s  SENDER  TIMEOUT  timer(s) expired for ['#0', '#1', '#2'] -> resend only those (RTO=400 ms)
+   0.255s  SENDER  RETX     DATA #0 seq=0 (window=3)
+   0.256s  SENDER  RETX     DATA #1 seq=1 (window=3)
+   0.256s  LINK->  CORRUPT  ~~ link ~~ bit errors in: DATA seq=2 len=1024
+   0.256s  SENDER  RETX     DATA #2 seq=2 (window=3)
+   0.280s  RECEIVER DELIVER  seq=0 -> delivered #0, window base now #1
+   0.281s  RECEIVER DELIVER  seq=1 -> delivered #1, window base now #2
+   0.281s  RECEIVER BADCRC   frame from 127.0.0.1:64713 failed check (checksum mismatch) -> dropped
+   0.305s  SENDER  ACK      sack=#0 cum=1 -> window slides by 1, base=#1
+   0.305s  SENDER  ACK      sack=#1 cum=2 -> window slides by 1, base=#2
+   0.305s  LINK->  CORRUPT  ~~ link ~~ bit errors in: DATA seq=4 len=1024
+   0.305s  SENDER  SEND     DATA #4 seq=4 (window=3)
+   0.330s  RECEIVER BADCRC   frame from 127.0.0.1:64713 failed check (checksum mismatch) -> dropped
+   ... 35 more lines ...
+
+================================================================
+  protocol        : SR  window=4  cc=none  seq_bits=32  checksum=crc32
+  file            : file.bin  9,899 bytes in 10 packets
+  time            : handshake 47.5 ms, data 1.164 s, total 1.262 s
+  goodput         : 68.0 kbit/s  (8.5 KB/s)
+  packets sent    : 17  (retransmitted 7, efficiency 58.8%)
+  loss recovery   : 5 timeouts, 0 fast retransmits, 2 dup ACKs, 0 corrupt ACKs
+  RTT             : SRTT 48.1 ms, final RTO 200 ms
+  integrity       : VERIFIED (SHA-256 match)
+  receiver        : 8 corrupt frames dropped, 0 duplicates, 2 buffered / 0 discarded out-of-order
+================================================================

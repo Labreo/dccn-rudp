@@ -1,0 +1,29 @@
+$ python -m rudp router --port 9600 --to 127.0.0.1:9601 --loss 0.08 --corrupt 0.02 --rate 6000 --delay 5
+RUDP router: UDP 0.0.0.0:9600  ==>  127.0.0.1:9601
+  data direction: loss=8% corrupt=2% dup=0% delay=5.0ms jitter=0.0ms rate=6000 kbit/s queue=100
+  ACK direction : loss=0% delay=5.0ms
+  senders should use:  python -m rudp send FILE --to 10.139.152.157:9600
+  sender 127.0.0.1:60478 -> forwarding to 127.0.0.1:9601
+  [12:24:55] data 272 in -> 247 out (25 lost, 0 queue drops, 4 corrupted) | ACKs 242 in -> 242 out (0 lost)
+  [12:25:00] data 565 in -> 510 out (55 lost, 0 queue drops, 8 corrupted) | ACKs 502 in -> 502 out (0 lost)
+
+router stopped
+
+$ python -m rudp send notes.pdf --to 127.0.0.1:9600 --proto sr --window 32 --cc reno
+Sending 'notes.pdf' (512,000 bytes) to 127.0.0.1:9600 using SR N=32 cc=reno
+
+  [##############################] 100.0%      62.0 KB/s  retx    62  timeouts   27  cwnd   2.0  rto   200 ms
+
+================================================================
+  protocol        : SR  window=32  cc=reno  seq_bits=32  checksum=crc32
+  file            : notes.pdf  512,000 bytes in 500 packets
+  time            : handshake 14.1 ms, data 8.039 s, total 8.069 s
+  goodput         : 509.5 kbit/s  (63.7 KB/s)
+  packets sent    : 562  (retransmitted 62, efficiency 89.0%)
+  loss recovery   : 27 timeouts, 34 fast retransmits, 120 dup ACKs, 0 corrupt ACKs
+  RTT             : SRTT 14.5 ms, final RTO 200 ms
+  integrity       : VERIFIED (SHA-256 match)
+================================================================
+
+$ cmp notes.pdf received/notes.pdf && echo identical
+identical

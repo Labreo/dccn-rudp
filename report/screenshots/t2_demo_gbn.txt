@@ -1,0 +1,62 @@
+$ python -m rudp demo --proto gbn
+DEMO: 12 packets, GBN N=4 cc=none  |  data link: loss=15% corrupt=0% dup=0% delay=20.0ms jitter=0.0ms  |  ACK link: loss=0%
+
+   0.001s  SENDER  SYN      connect to 127.0.0.1:65328 conn_id=32863 (GBN, N=4, m=32)
+   0.025s  RECEIVER SYN      from 127.0.0.1:65512 conn_id=32863: 'file.bin' 11,947 bytes, 12 packets, GBN N=4 m=32
+   0.025s  RECEIVER SYNACK   sent, rwnd=4
+   0.050s  SENDER  SYNACK   received, rwnd=4, initial RTT estimate 48.7 ms
+   0.050s  SENDER  ACK      3-way handshake complete -> ESTABLISHED
+   0.050s  SENDER  SEND     DATA #0 seq=0 (window=4)
+   0.051s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=1 len=1024
+   0.051s  SENDER  SEND     DATA #1 seq=1 (window=4)
+   0.051s  SENDER  SEND     DATA #2 seq=2 (window=4)
+   0.051s  SENDER  SEND     DATA #3 seq=3 (window=4)
+   0.072s  RECEIVER INFO     handshake ACK received -> ESTABLISHED
+   0.072s  RECEIVER DELIVER  seq=0 in order -> packet #0 delivered, ACK next=1
+   0.073s  RECEIVER DISCARD  seq=2 out of order (expecting 1) -> discard, re-ACK 1
+   0.073s  RECEIVER DISCARD  seq=3 out of order (expecting 1) -> discard, re-ACK 1
+   0.097s  SENDER  ACK      ack=1 -> 1 packet(s) ACKed, base=#1
+   0.097s  SENDER  DUPACK   ack=1 (duplicate #1, base=#1)
+   0.097s  SENDER  DUPACK   ack=1 (duplicate #2, base=#1)
+   0.098s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=4 len=1024
+   0.098s  SENDER  SEND     DATA #4 seq=4 (window=4)
+   0.303s  SENDER  TIMEOUT  timer for #1 expired -> go back to #1 (resend 4), RTO=400 ms
+   0.303s  SENDER  RETX     DATA #1 seq=1 (window=4)
+   0.303s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=2 len=1024
+   0.303s  SENDER  RETX     DATA #2 seq=2 (window=4)
+   0.303s  SENDER  RETX     DATA #3 seq=3 (window=4)
+   0.304s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=4 len=1024
+   0.304s  SENDER  RETX     DATA #4 seq=4 (window=4)
+   0.328s  RECEIVER DELIVER  seq=1 in order -> packet #1 delivered, ACK next=2
+   0.329s  RECEIVER DISCARD  seq=3 out of order (expecting 2) -> discard, re-ACK 2
+   0.354s  SENDER  ACK      ack=2 -> 1 packet(s) ACKed, base=#2
+   0.354s  SENDER  DUPACK   ack=2 (duplicate #1, base=#2)
+   0.354s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=5 len=1024
+   0.354s  SENDER  SEND     DATA #5 seq=5 (window=4)
+   0.556s  SENDER  TIMEOUT  timer for #2 expired -> go back to #2 (resend 4), RTO=400 ms
+   0.557s  SENDER  RETX     DATA #2 seq=2 (window=4)
+   0.557s  SENDER  RETX     DATA #3 seq=3 (window=4)
+   0.557s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=4 len=1024
+   0.557s  SENDER  RETX     DATA #4 seq=4 (window=4)
+   0.557s  SENDER  RETX     DATA #5 seq=5 (window=4)
+   0.582s  RECEIVER DELIVER  seq=2 in order -> packet #2 delivered, ACK next=3
+   0.582s  RECEIVER DELIVER  seq=3 in order -> packet #3 delivered, ACK next=4
+   0.582s  RECEIVER DISCARD  seq=5 out of order (expecting 4) -> discard, re-ACK 4
+   0.607s  SENDER  ACK      ack=3 -> 1 packet(s) ACKed, base=#3
+   0.607s  SENDER  ACK      ack=4 -> 1 packet(s) ACKed, base=#4
+   0.607s  SENDER  DUPACK   ack=4 (duplicate #1, base=#4)
+   ... 62 more lines ...
+   2.206s  RECEIVER FINACK   sent (TIME_WAIT 10.0s)
+   2.230s  SENDER  FINACK   receiver says file OK
+
+================================================================
+  protocol        : GBN  window=4  cc=none  seq_bits=32  checksum=crc32
+  file            : file.bin  11,947 bytes in 12 packets
+  time            : handshake 48.8 ms, data 2.129 s, total 2.229 s
+  goodput         : 44.9 kbit/s  (5.6 KB/s)
+  packets sent    : 34  (retransmitted 22, efficiency 35.3%)
+  loss recovery   : 7 timeouts, 0 fast retransmits, 11 dup ACKs, 0 corrupt ACKs
+  RTT             : SRTT 48.5 ms, final RTO 200 ms
+  integrity       : VERIFIED (SHA-256 match)
+  receiver        : 0 corrupt frames dropped, 0 duplicates, 0 buffered / 11 discarded out-of-order
+================================================================

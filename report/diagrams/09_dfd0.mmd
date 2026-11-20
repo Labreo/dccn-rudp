@@ -1,0 +1,7 @@
+flowchart LR
+  U[/User/] -- "file path, destination,<br/>protocol options" --> P0(("0<br/>RUDP file<br/>transfer system"))
+  P0 -- "progress, statistics,<br/>success / failure" --> U
+  P0 -- "UDP datagrams" --> NET[/Network/]
+  NET -- "UDP datagrams<br/>(possibly damaged)" --> P0
+  P0 -- "received file" --> D1[("D1  Output folder")]
+  P0 -- "CSV / JSON / PNG results" --> D2[("D2  results/")]

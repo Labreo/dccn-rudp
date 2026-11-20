@@ -1,0 +1,9 @@
+stateDiagram-v2
+  direction LR
+  [*] --> SlowStart
+  SlowStart --> CongestionAvoidance: cwnd ≥ ssthresh
+  CongestionAvoidance --> FastRecovery: 3 dup ACKs (Reno)
+  SlowStart --> FastRecovery: 3 dup ACKs (Reno)
+  FastRecovery --> CongestionAvoidance: new ACK
+  CongestionAvoidance --> SlowStart: timeout, or 3 dup ACKs (Tahoe)
+  FastRecovery --> SlowStart: timeout

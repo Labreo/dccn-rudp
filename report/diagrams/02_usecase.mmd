@@ -1,0 +1,24 @@
+flowchart LR
+  U([User / student]):::actor
+  P([Professor / evaluator]):::actor
+  subgraph SYS["RUDP system"]
+    UC1([Send a file reliably over UDP])
+    UC2([Receive and verify a file])
+    UC3([Choose protocol: SW / GBN / SR])
+    UC4([Configure link impairments])
+    UC5([Watch live visualization])
+    UC6([Run benchmark experiments])
+    UC7([Calculate CRC step by step])
+    UC8([Relay through impaired router])
+  end
+  U --> UC1
+  U --> UC2
+  U --> UC4
+  U --> UC6
+  U --> UC7
+  U --> UC8
+  P --> UC5
+  P --> UC6
+  UC1 -. includes .-> UC3
+  UC5 -. includes .-> UC3
+  classDef actor fill:#fff3e0,stroke:#b5541a,stroke-width:2px
