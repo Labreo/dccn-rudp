@@ -227,6 +227,13 @@ def make_udp_socket(bind_host: str = "0.0.0.0", port: int = 0) -> socket.socket:
     """UDP socket with large buffers so the OS itself does not drop bursts."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if hasattr(socket, "SIO_UDP_CONNRESET"):
+        # Windows: do not turn an ICMP "port unreachable" (e.g. the peer has
+        # already closed) into ConnectionResetError on the next recvfrom().
+        try:
+            s.ioctl(socket.SIO_UDP_CONNRESET, False)
+        except OSError:
+            pass
     for opt in (socket.SO_RCVBUF, socket.SO_SNDBUF):
         try:
             s.setsockopt(socket.SOL_SOCKET, opt, 4 * 1024 * 1024)

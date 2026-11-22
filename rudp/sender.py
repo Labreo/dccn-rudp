@@ -554,7 +554,7 @@ class SelectiveRepeatSender(BaseSender):
             self.log("ACK" if got_sel else "DUPACK",
                      f"sack=#{old_base + sel if got_sel else '-'} buffered by receiver,"
                      f" still missing #{self.base} (dup #{self.dupacks})")
-            if self.cc.on_dup_ack(self.dupacks, len(self.unacked)) and self.base in self.unacked:
+            if self.cc.on_dup_ack(self.dupacks, self.next - self.base) and self.base in self.unacked:
                 self.stats.fast_retransmits += 1
                 self.recovery_point = self.next
                 self.trace.events.append((self._now(), "fastretx", self.base))
@@ -599,7 +599,7 @@ class SelectiveRepeatSender(BaseSender):
         self.trace.events.append((self._now(), "timeout", expired[0]))
         new_loss_event = expired[0] >= self.recovery_point
         if new_loss_event:  # cut the window once per window of data
-            self.cc.on_timeout(len(self.unacked))
+            self.cc.on_timeout(self.next - self.base)
             self.recovery_point = self.next
         if new_loss_event or expired[0] in self.retx:  # a retransmission was lost too
             self.rtt.backoff()

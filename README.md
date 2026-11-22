@@ -369,8 +369,8 @@ timeout. Because SR ACKs say exactly which packets arrived, the SR sender
 uses that during recovery: every incoming ACK may retransmit the lowest
 "hole" that has been outstanding for more than one SRTT while later packets
 have already been ACKed. This is the idea behind TCP SACK (RFC 6675). It cut
-retransmissions in Experiment 3 from 2x the number of drops to exactly one per
-drop. With Go-Back-N, "fast retransmit" means going back N immediately,
+retransmissions in Experiment 3 from about 2x the number of drops to about one
+per drop (40 retransmissions for 37 drops with Reno). With Go-Back-N, "fast retransmit" means going back N immediately,
 because the GBN receiver threw the later packets away.
 
 A congestion response happens at most once per window of data
@@ -410,15 +410,15 @@ RTT is only 20 to 40 ms.
 
 | loss | Stop-and-Wait | Go-Back-N N=16 | Selective Repeat N=16 | GBN + Reno | SR + Reno |
 |---|---|---|---|---|---|
-| 0% | 295 kbit/s | 3627 | 3621 | 2905 | 2879 |
-| 2% | 272 | 1611 | 1955 | 2021 | 1789 |
-| 5% | 235 | 961 | 1343 | 1088 | 962 |
-| 10% | 221 | 431 | 1229 | 934 | 791 |
-| 20% | 114 | 167 | 479 | 131 | 170 |
+| 0% | 300 kbit/s | 3613 | 3621 | 2884 | 2850 |
+| 2% | 276 | 1638 | 1961 | 2039 | 2026 |
+| 5% | 238 | 955 | 1334 | 1091 | 1168 |
+| 10% | 224 | 432 | 1195 | 941 | 840 |
+| 20% | 115 | 165 | 452 | 131 | 172 |
 
 * **Stop-and-Wait follows the theory almost exactly.** The measured RTT was
-  27.6 ms and Tt = 2.09 ms, so 1+2a = 13.2 and the predicted utilisation is
-  1/13.2 = 7.6%. We measured 7.4% (295 of 4000 kbit/s). With loss, the model
+  27.3 ms and Tt = 2.09 ms, so 1+2a = 13.0 and the predicted utilisation is
+  1/13.0 = 7.7%. We measured 7.5% (300 of 4000 kbit/s). With loss, the model
   `Tt / (RTT + p/(1-p)·RTO)` (dashed blue line) matches the measured points.
 * **Windowing gives 12x the throughput** with no loss (N = 16 > 1+2a, so the
   pipe stays full).
@@ -456,14 +456,16 @@ and goodput *falls*.
 
 | run | goodput | link used | queue drops | retransmissions | efficiency |
 |---|---|---|---|---|---|
-| SR, fixed N = 128 | 1287 kbit/s | 64% | 1804 | 1804 | 45% |
-| GBN, fixed N = 128 | 495 kbit/s | 25% | 7069 | 8772 | 15% |
-| SR + Tahoe | 1855 kbit/s | 93% | 37 | 37 | 98% |
-| SR + Reno | 1903 kbit/s | **95%** | 35 | 36 | 98% |
+| SR, fixed N = 128 | 1426 kbit/s | 71% | 1865 | 1865 | 45% |
+| GBN, fixed N = 128 | 505 kbit/s | 25% | 7089 | 8797 | 15% |
+| SR + Tahoe | 1748 kbit/s | 87% | 26 | 29 | 98% |
+| SR + Reno | 1872 kbit/s | **94%** | 37 | 40 | 97% |
 
 The pipe holds about 30 packets (BDP 9.6 + queue 20). The graph shows slow
 start overshooting it, then the AIMD saw-tooth oscillating around the dashed
-"pipe size" line. Tahoe drops to cwnd = 1 on each loss; Reno only halves.
+"pipe size" line. Tahoe drops to cwnd = 1 on each loss; Reno only halves (the short spikes
+during Reno's recovery are fast-recovery "window inflation": +1 per extra
+duplicate ACK).
 Without congestion control, more than half the packets sent are wasted
 duplicates, and with GBN 85% are.
 

@@ -61,4 +61,4 @@ tests/test_viz_router.py::test_viz_execute_runs_a_fast_transfer PASSED          
 tests/test_viz_router.py::test_viz_http_server_serves_page_and_stream PASSED                           [ 98%]
 tests/test_viz_router.py::test_router_relays_through_impaired_link PASSED                              [100%]
 
-============================================ 51 passed in 25.84s =============================================
+============================================ 51 passed in 24.98s =============================================

@@ -235,7 +235,16 @@ def make_handler(app: VizServer):
 
 def serve(host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> None:
     app = VizServer()
-    httpd = ThreadingHTTPServer((host, port), make_handler(app))
+    httpd = None
+    for p in range(port, port + 20):  # if the port is taken (e.g. a viz left running), use the next one
+        try:
+            httpd = ThreadingHTTPServer((host, p), make_handler(app))
+            break
+        except OSError:
+            if p == port:
+                print(f"port {port} is busy, trying the next one ...")
+    if httpd is None:
+        raise SystemExit(f"no free port between {port} and {port + 19}; pass --port N")
     httpd.daemon_threads = True
     url = f"http://{'localhost' if host in ('127.0.0.1', '0.0.0.0') else host}:{httpd.server_port}/"
     print(f"RUDP live visualizer running at {url}   (Ctrl+C to stop)")

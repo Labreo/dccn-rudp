@@ -1,18 +1,18 @@
 $ python -m rudp send photo.jpg --to 127.0.0.1:9500 --proto sr --window 32 --cc reno --loss 0.05 --delay 10
 Sending 'photo.jpg' (524,288 bytes) to 127.0.0.1:9500 using SR N=32 cc=reno
 
-  [##############################] 100.0%     156.7 KB/s  retx    32  timeouts    8  cwnd   5.4  rto   200 ms
+  [##############################] 100.0%     293.3 KB/s  retx    20  timeouts    4  cwnd  13.0  rto   200 ms
 
 ================================================================
   protocol        : SR  window=32  cc=reno  seq_bits=32  checksum=crc32
   file            : photo.jpg  524,288 bytes in 512 packets
-  time            : handshake 15.0 ms, data 3.250 s, total 3.280 s
-  goodput         : 1,290.6 kbit/s  (161.3 KB/s)
-  packets sent    : 544  (retransmitted 32, efficiency 94.1%)
-  loss recovery   : 8 timeouts, 23 fast retransmits, 105 dup ACKs, 0 corrupt ACKs
-  RTT             : SRTT 12.6 ms, final RTO 200 ms
+  time            : handshake 13.4 ms, data 1.727 s, total 1.755 s
+  goodput         : 2,428.9 kbit/s  (303.6 KB/s)
+  packets sent    : 532  (retransmitted 20, efficiency 96.2%)
+  loss recovery   : 4 timeouts, 16 fast retransmits, 111 dup ACKs, 0 corrupt ACKs
+  RTT             : SRTT 11.8 ms, final RTO 200 ms
   integrity       : VERIFIED (SHA-256 match)
-  emulated link   : 547 offered, 31 lost, 0 burst-lost, 0 queue drops, 0 corrupted, 0 duplicated
+  emulated link   : 535 offered, 18 lost, 0 burst-lost, 0 queue drops, 0 corrupted, 0 duplicated
 ================================================================
 
 $ cmp photo.jpg received/photo.jpg && echo identical

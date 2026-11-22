@@ -36,8 +36,28 @@ _COLORS = {
 _print_lock = threading.Lock()
 
 
+def _enable_windows_ansi() -> bool:
+    """Turn on ANSI colour codes in the Windows console (no-op elsewhere)."""
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        ok = False
+        for handle_id in (-11, -12):  # STD_OUTPUT_HANDLE, STD_ERROR_HANDLE
+            handle = kernel32.GetStdHandle(handle_id)
+            mode = ctypes.c_uint32()
+            if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                ok = bool(kernel32.SetConsoleMode(handle, mode.value | 0x0004)) or ok
+        return ok
+    except Exception:
+        return False
+
+
 def _supports_color(stream) -> bool:
-    return hasattr(stream, "isatty") and stream.isatty() and os.environ.get("NO_COLOR") is None
+    return (hasattr(stream, "isatty") and stream.isatty() and os.environ.get("NO_COLOR") is None
+            and _enable_windows_ansi())
 
 
 class EventLog:

@@ -1,62 +1,62 @@
 $ python -m rudp demo --proto sr
 DEMO: 12 packets, SR N=4 cc=none  |  data link: loss=15% corrupt=0% dup=0% delay=20.0ms jitter=0.0ms  |  ACK link: loss=0%
 
-   0.001s  SENDER  SYN      connect to 127.0.0.1:60331 conn_id=56112 (SR, N=4, m=32)
-   0.023s  RECEIVER SYN      from 127.0.0.1:51308 conn_id=56112: 'file.bin' 11,947 bytes, 12 packets, SR N=4 m=32
-   0.023s  RECEIVER SYNACK   sent, rwnd=4
-   0.048s  SENDER  SYNACK   received, rwnd=4, initial RTT estimate 46.9 ms
-   0.048s  SENDER  ACK      3-way handshake complete -> ESTABLISHED
-   0.048s  SENDER  SEND     DATA #0 seq=0 (window=4)
-   0.049s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=1 len=1024
-   0.049s  SENDER  SEND     DATA #1 seq=1 (window=4)
-   0.049s  SENDER  SEND     DATA #2 seq=2 (window=4)
-   0.049s  SENDER  SEND     DATA #3 seq=3 (window=4)
-   0.069s  RECEIVER INFO     handshake ACK received -> ESTABLISHED
-   0.069s  RECEIVER DELIVER  seq=0 -> delivered #0, window base now #1
-   0.069s  RECEIVER BUFFER   seq=2 out of order -> buffered as #2 (waiting for #1)
-   0.070s  RECEIVER BUFFER   seq=3 out of order -> buffered as #3 (waiting for #1)
-   0.091s  SENDER  ACK      sack=#0 cum=1 -> window slides by 1, base=#1
-   0.091s  SENDER  ACK      sack=#2 buffered by receiver, still missing #1 (dup #1)
-   0.091s  SENDER  ACK      sack=#3 buffered by receiver, still missing #1 (dup #2)
-   0.253s  SENDER  TIMEOUT  timer(s) expired for ['#1'] -> resend only those (RTO=400 ms)
-   0.254s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=1 len=1024
-   0.254s  SENDER  RETX     DATA #1 seq=1 (window=2)
-   0.659s  SENDER  TIMEOUT  timer(s) expired for ['#1'] -> resend only those (RTO=800 ms)
-   0.659s  SENDER  RETX     DATA #1 seq=1 (window=2)
-   0.683s  RECEIVER DELIVER  seq=1 -> delivered #1..#3, window base now #4
-   0.704s  SENDER  ACK      sack=#1 cum=4 -> window slides by 3, base=#4
-   0.704s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=4 len=1024
-   0.704s  SENDER  SEND     DATA #4 seq=4 (window=4)
-   0.704s  SENDER  SEND     DATA #5 seq=5 (window=4)
-   0.704s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=6 len=1024
-   0.704s  SENDER  SEND     DATA #6 seq=6 (window=4)
-   0.705s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=7 len=1024
-   0.705s  SENDER  SEND     DATA #7 seq=7 (window=4)
-   0.729s  RECEIVER BUFFER   seq=5 out of order -> buffered as #5 (waiting for #4)
-   0.754s  SENDER  ACK      sack=#5 buffered by receiver, still missing #4 (dup #1)
-   0.908s  SENDER  TIMEOUT  timer(s) expired for ['#4', '#6', '#7'] -> resend only those (RTO=400 ms)
-   0.908s  SENDER  RETX     DATA #4 seq=4 (window=3)
-   0.908s  SENDER  RETX     DATA #6 seq=6 (window=3)
-   0.908s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=7 len=1024
-   0.908s  SENDER  RETX     DATA #7 seq=7 (window=3)
-   0.932s  RECEIVER DELIVER  seq=4 -> delivered #4..#5, window base now #6
-   0.932s  RECEIVER DELIVER  seq=6 -> delivered #6, window base now #7
-   0.955s  SENDER  ACK      sack=#4 cum=6 -> window slides by 2, base=#6
-   0.955s  SENDER  ACK      sack=#6 cum=7 -> window slides by 1, base=#7
-   0.955s  SENDER  SEND     DATA #8 seq=8 (window=4)
-   0.956s  SENDER  SEND     DATA #9 seq=9 (window=4)
+   0.002s  SENDER  SYN      connect to 127.0.0.1:62644 conn_id=45292 (SR, N=4, m=32)
+   0.027s  RECEIVER SYN      from 127.0.0.1:63244 conn_id=45292: 'file.bin' 11,947 bytes, 12 packets, SR N=4 m=32
+   0.027s  RECEIVER SYNACK   sent, rwnd=4
+   0.053s  SENDER  SYNACK   received, rwnd=4, initial RTT estimate 51.2 ms
+   0.053s  SENDER  ACK      3-way handshake complete -> ESTABLISHED
+   0.053s  SENDER  SEND     DATA #0 seq=0 (window=4)
+   0.053s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=1 len=1024
+   0.053s  SENDER  SEND     DATA #1 seq=1 (window=4)
+   0.053s  SENDER  SEND     DATA #2 seq=2 (window=4)
+   0.054s  SENDER  SEND     DATA #3 seq=3 (window=4)
+   0.077s  RECEIVER INFO     handshake ACK received -> ESTABLISHED
+   0.077s  RECEIVER DELIVER  seq=0 -> delivered #0, window base now #1
+   0.077s  RECEIVER BUFFER   seq=2 out of order -> buffered as #2 (waiting for #1)
+   0.077s  RECEIVER BUFFER   seq=3 out of order -> buffered as #3 (waiting for #1)
+   0.102s  SENDER  ACK      sack=#0 cum=1 -> window slides by 1, base=#1
+   0.102s  SENDER  ACK      sack=#2 buffered by receiver, still missing #1 (dup #1)
+   0.102s  SENDER  ACK      sack=#3 buffered by receiver, still missing #1 (dup #2)
+   0.259s  SENDER  TIMEOUT  timer(s) expired for ['#1'] -> resend only those (RTO=400 ms)
+   0.260s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=1 len=1024
+   0.260s  SENDER  RETX     DATA #1 seq=1 (window=2)
+   0.663s  SENDER  TIMEOUT  timer(s) expired for ['#1'] -> resend only those (RTO=800 ms)
+   0.664s  SENDER  RETX     DATA #1 seq=1 (window=2)
+   0.689s  RECEIVER DELIVER  seq=1 -> delivered #1..#3, window base now #4
+   0.711s  SENDER  ACK      sack=#1 cum=4 -> window slides by 3, base=#4
+   0.712s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=4 len=1024
+   0.712s  SENDER  SEND     DATA #4 seq=4 (window=4)
+   0.713s  SENDER  SEND     DATA #5 seq=5 (window=4)
+   0.713s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=6 len=1024
+   0.713s  SENDER  SEND     DATA #6 seq=6 (window=4)
+   0.714s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=7 len=1024
+   0.714s  SENDER  SEND     DATA #7 seq=7 (window=4)
+   0.737s  RECEIVER BUFFER   seq=5 out of order -> buffered as #5 (waiting for #4)
+   0.759s  SENDER  ACK      sack=#5 buffered by receiver, still missing #4 (dup #1)
+   0.916s  SENDER  TIMEOUT  timer(s) expired for ['#4', '#6', '#7'] -> resend only those (RTO=400 ms)
+   0.917s  SENDER  RETX     DATA #4 seq=4 (window=3)
+   0.917s  SENDER  RETX     DATA #6 seq=6 (window=3)
+   0.917s  LINK->  DROP     ~~ link ~~ lost on wire: DATA seq=7 len=1024
+   0.917s  SENDER  RETX     DATA #7 seq=7 (window=3)
+   0.939s  RECEIVER DELIVER  seq=4 -> delivered #4..#5, window base now #6
+   0.939s  RECEIVER DELIVER  seq=6 -> delivered #6, window base now #7
+   0.960s  SENDER  ACK      sack=#4 cum=6 -> window slides by 2, base=#6
+   0.960s  SENDER  ACK      sack=#6 cum=7 -> window slides by 1, base=#7
+   0.961s  SENDER  SEND     DATA #8 seq=8 (window=4)
+   0.961s  SENDER  SEND     DATA #9 seq=9 (window=4)
    ... 16 more lines ...
-   1.239s  RECEIVER FINACK   sent (TIME_WAIT 10.0s)
-   1.264s  SENDER  FINACK   receiver says file OK
+   1.246s  RECEIVER FINACK   sent (TIME_WAIT 10.0s)
+   1.272s  SENDER  FINACK   receiver says file OK
 
 ================================================================
   protocol        : SR  window=4  cc=none  seq_bits=32  checksum=crc32
   file            : file.bin  11,947 bytes in 12 packets
-  time            : handshake 47.0 ms, data 1.164 s, total 1.263 s
-  goodput         : 82.1 kbit/s  (10.3 KB/s)
+  time            : handshake 51.4 ms, data 1.166 s, total 1.271 s
+  goodput         : 82.0 kbit/s  (10.2 KB/s)
   packets sent    : 18  (retransmitted 6, efficiency 66.7%)
   loss recovery   : 4 timeouts, 0 fast retransmits, 6 dup ACKs, 0 corrupt ACKs
-  RTT             : SRTT 47.7 ms, final RTO 200 ms
+  RTT             : SRTT 48.3 ms, final RTO 200 ms
   integrity       : VERIFIED (SHA-256 match)
   receiver        : 0 corrupt frames dropped, 0 duplicates, 6 buffered / 0 discarded out-of-order
 ================================================================

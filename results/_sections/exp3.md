@@ -9,7 +9,7 @@ Bottleneck 2 Mbit/s, base RTT 40 ms, drop-tail queue of 20 packets, no random lo
 
 | run | goodput_kbps | utilisation | queue_drops | retransmissions | timeouts | fast_retransmits | efficiency | verified |
 |---|---|---|---|---|---|---|---|---|
-| SR, no CC, N=128 | 1286.5 | 64.3% | 1804 | 1804 | 157 | 0 | 45.4% | True |
-| GBN, no CC, N=128 | 495.0 | 24.8% | 7069 | 8772 | 72 | 0 | 14.6% | True |
-| SR + Tahoe | 1854.5 | 92.7% | 37 | 37 | 1 | 36 | 97.6% | True |
-| SR + Reno | 1902.9 | 95.1% | 35 | 36 | 1 | 35 | 97.7% | True |
+| SR, no CC, N=128 | 1426.4 | 71.3% | 1865 | 1865 | 261 | 0 | 44.6% | True |
+| GBN, no CC, N=128 | 504.6 | 25.2% | 7089 | 8797 | 72 | 0 | 14.6% | True |
+| SR + Tahoe | 1747.7 | 87.4% | 26 | 29 | 0 | 29 | 98.1% | True |
+| SR + Reno | 1872.3 | 93.6% | 37 | 40 | 2 | 37 | 97.4% | True |
