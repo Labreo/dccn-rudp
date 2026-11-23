@@ -6,6 +6,38 @@ the code. The full written report is in [report/](report/).
 
 ---
 
+## 0. Who does what (4 people, about 12 minutes)
+
+**Mannan's laptop runs everything and Mannan does every click**; the others
+speak while he clicks, so nobody has to swap laptops. Each speaker owns one
+group of concepts and answers sir's questions on it (section 5 lists the
+likely ones). Step numbers refer to section 3.
+
+| # | Speaker | Time | Concepts (syllabus) | What is on screen |
+|---|---|---|---|---|
+| 1 | **Kanak** | 2.5 min | Problem: UDP vs TCP, our goal (Unit 4); system parts; framing, CRC error detection (Unit 3) | Opening (section 2), then Step 1: `python -m rudp crc 1101011011 10011` in the terminal |
+| 2 | **Noah** | 3 min | ARQ: Stop-and-Wait, utilisation 1/(1+2a), sliding window, Go-Back-N vs Selective Repeat (Unit 3) | Steps 2, 3, 4: visualizer **Stop-and-Wait**, **Go-Back-N**, **Selective Repeat** |
+| 3 | **Mannan** | 3 min | Corrupted frames; timers and RTO; TCP congestion control: slow start, AIMD, fast retransmit, fast recovery (Unit 4) | Steps 5, 6: visualizer **Bit errors (CRC)**, **TCP Reno** (point at the cwnd chart) |
+| 4 | **[4th member]** | 3 min | Sequence-number space and window limits (Unit 3); testing; measured results vs theory; conclusion | Step 7: visualizer **Unsafe window**; Step 8: report PDF Chapter 7 graphs; "51 tests pass" |
+| – | **Kanak** | rest | Questions from sir | Any scenario again; report PDF |
+
+Hand-over lines, so it flows:
+
+* Kanak → Noah: "Now that a corrupted frame can be detected, Noah will show how
+  lost or corrupted frames are recovered."
+* Noah → Mannan: "These protocols assume the network can take everything we
+  send. Mannan will show what happens with errors and congestion."
+* Mannan → [4th member]: "Finally, why the window can't be any size, and our
+  measured results."
+* [4th member] closes: "Every file in every test is verified with SHA-256; all
+  51 automated tests pass. Thank you, we're happy to take questions."
+
+Before 4 pm, Mannan: run section 1 below, open the visualizer and the report
+PDF, and click through all 8 scenarios once (each takes 10–40 seconds). Lower
+"One-way delay ms" to about 400 if sir wants it faster.
+
+---
+
 ## 1. The night before (on the laptop you will present from)
 
 Needs Python 3.10 or newer (`python --version`). On Windows use `python`, on
